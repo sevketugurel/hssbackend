@@ -23,12 +23,12 @@ spring:
     baseline-on-migrate: true
     validate-on-migrate: true
   
-  # GCP Cloud SQL Configuration
+  # GCP Cloud SQL Configuration (Default - will be overridden by profiles)
   cloud:
     gcp:
       sql:
         enabled: true
-        database-name: hss_database
+        database-name: ${DB_NAME:hss_database}
         instance-connection-name: ${GCP_SQL_INSTANCE_CONNECTION_NAME:}
       storage:
         bucket-name: ${GCP_STORAGE_BUCKET:hss-storage-bucket}

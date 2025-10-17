@@ -1,4 +1,4 @@
-package main.java.com.hss.hss_backend.repository;
+package com.hss.hss_backend.repository;
 
 import com.hss.hss_backend.entity.Appointment;
 import org.springframework.data.jpa.repository.JpaRepository;
