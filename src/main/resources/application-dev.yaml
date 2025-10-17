@@ -1,0 +1,44 @@
+spring:
+  # Development Database Configuration (Local PostgreSQL)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/hss_database
+    username: ${DB_USERNAME:hss_user}
+    password: ${DB_PASSWORD:hss_password}
+    driver-class-name: org.postgresql.Driver
+  
+  # JPA Configuration for Development
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  
+  # GCP Configuration for Development
+  cloud:
+    gcp:
+      sql:
+        enabled: false  # Use local database in dev
+      storage:
+        bucket-name: hss-dev-storage-bucket
+        project-id: ${GCP_PROJECT_ID:hss-project-id}
+  
+  # Security Configuration for Development
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ${JWT_ISSUER_URI:https://securetoken.google.com/hss-project-id}
+
+# Development specific logging
+logging:
+  level:
+    com.hss.hss_backend: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.web: DEBUG
