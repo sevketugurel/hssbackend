@@ -10,6 +10,10 @@ on:
       - main
       - dev
 
+permissions:
+  contents: read
+  id-token: write
+
 env:
   PROJECT_ID: hss-cloud-473511
   REGION: europe-west3
