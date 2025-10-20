@@ -1,5 +1,8 @@
 package com.hss.hss_backend.config;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
+import io.jsonwebtoken.security.Keys;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,12 +16,16 @@ import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import javax.crypto.SecretKey;
 import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    // Test için sabit secret key
+    private static final SecretKey SECRET_KEY = Keys.secretKeyFor(SignatureAlgorithm.HS256);
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -28,6 +35,8 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/api/public/**", "/actuator/health", "/actuator/info").permitAll()
+                // Swagger UI ve API dokümantasyonu için izin ver
+                .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
                 .requestMatchers("/api/animals/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF", "RECEPTIONIST")
                 .requestMatchers("/api/appointments/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF", "RECEPTIONIST")
                 .requestMatchers("/api/medical-history/**").hasAnyRole("ADMIN", "VETERINARIAN")
@@ -38,6 +47,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/inventory/**").hasAnyRole("ADMIN", "STAFF")
                 .requestMatchers("/api/files/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF")
                 .requestMatchers("/api/dashboard/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF", "RECEPTIONIST")
+                .requestMatchers("/api/species/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF", "RECEPTIONIST")
+                .requestMatchers("/api/staff/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF")
                 .anyRequest().authenticated()
             )
             .oauth2ResourceServer(oauth2 -> oauth2
@@ -49,9 +60,8 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        // This will be configured with the actual issuer URI from application properties
-        return NimbusJwtDecoder.withJwkSetUri("https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com")
-                .build();
+        // Test için basit JWT decoder - AuthController ile aynı secret key kullanıyor
+        return NimbusJwtDecoder.withSecretKey(SECRET_KEY).build();
     }
 
     @Bean
