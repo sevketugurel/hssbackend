@@ -8,6 +8,7 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import javax.crypto.SecretKey;
@@ -21,6 +22,7 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/public")
+@Transactional
 public class AuthController {
 
     @Autowired
@@ -34,56 +36,63 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> login(@RequestBody Map<String, String> loginRequest) {
-        String username = loginRequest.get("username");
-        String password = loginRequest.get("password");
-        
-        if (username == null || username.trim().isEmpty()) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "Username is required");
-            return ResponseEntity.badRequest().body(error);
-        }
+        try {
+            String username = loginRequest.get("username");
+            String password = loginRequest.get("password");
+            
+            if (username == null || username.trim().isEmpty()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Username is required");
+                return ResponseEntity.badRequest().body(error);
+            }
 
-        // Kullanıcıyı bul
-        Optional<UserAccount> userAccount = userService.findByUsername(username);
-        
-        if (userAccount.isEmpty()) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "Invalid username or password");
-            return ResponseEntity.badRequest().body(error);
-        }
+            // Kullanıcıyı bul
+            Optional<UserAccount> userAccount = userService.findByUsername(username);
+            
+            if (userAccount.isEmpty()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Invalid username or password");
+                return ResponseEntity.badRequest().body(error);
+            }
 
-        UserAccount user = userAccount.get();
-        
-        // Şifre kontrolü
-        if (!passwordEncoder.matches(password, user.getPasswordHash())) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "Invalid username or password");
-            return ResponseEntity.badRequest().body(error);
-        }
+            UserAccount user = userAccount.get();
+            
+            // Şifre kontrolü
+            if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Invalid username or password");
+                return ResponseEntity.badRequest().body(error);
+            }
 
-        // Kullanıcı aktif mi?
-        if (!user.getIsActive()) {
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "Account is deactivated");
-            return ResponseEntity.badRequest().body(error);
-        }
+            // Kullanıcı aktif mi?
+            if (!user.getIsActive()) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Account is deactivated");
+                return ResponseEntity.badRequest().body(error);
+            }
 
-        // Kullanıcının rollerini al
-        List<String> roles = userService.getUserRoles(username);
-        
-        // JWT token oluştur
-        String token = createToken(username, roles);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("token", token);
-        response.put("tokenType", "Bearer");
-        response.put("expiresIn", 3600); // 1 saat
-        response.put("username", username);
-        response.put("roles", roles);
-        response.put("fullName", user.getStaff().getFullName());
-        response.put("email", user.getEmail());
-        
-        return ResponseEntity.ok(response);
+            // Kullanıcının rollerini al
+            List<String> roles = userService.getUserRoles(username);
+            
+            // JWT token oluştur
+            String token = createToken(username, roles);
+            
+            Map<String, Object> response = new HashMap<>();
+            response.put("token", token);
+            response.put("tokenType", "Bearer");
+            response.put("expiresIn", 3600); // 1 saat
+            response.put("username", username);
+            response.put("roles", roles);
+            response.put("fullName", user.getStaff().getFullName());
+            response.put("email", user.getEmail());
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Login failed: " + e.getMessage());
+            error.put("details", e.getClass().getSimpleName());
+            return ResponseEntity.status(500).body(error);
+        }
     }
 
     @PostMapping("/create-test-user")
