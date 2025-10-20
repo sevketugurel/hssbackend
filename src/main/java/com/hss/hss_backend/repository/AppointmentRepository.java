@@ -23,7 +23,7 @@ public interface AppointmentRepository extends JpaRepository<Appointment, Long> 
     
     List<Appointment> findByDateTimeBetween(LocalDateTime startDateTime, LocalDateTime endDateTime);
     
-    List<Appointment> findByAnimalIdAndDateTimeBetween(Long animalId, LocalDateTime startDateTime, LocalDateTime endDateTime);
+    List<Appointment> findByAnimalAnimalIdAndDateTimeBetween(Long animalId, LocalDateTime startDateTime, LocalDateTime endDateTime);
     
     // Date range queries
     List<Appointment> findByDateTimeAfter(LocalDateTime dateTime);

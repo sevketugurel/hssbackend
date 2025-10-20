@@ -67,7 +67,7 @@ public class AppointmentService {
     @Transactional(readOnly = true)
     public List<AppointmentResponse> getAppointmentsByAnimalAndDateRange(Long animalId, LocalDateTime startDateTime, LocalDateTime endDateTime) {
         log.info("Fetching appointments for animal {} between {} and {}", animalId, startDateTime, endDateTime);
-        List<Appointment> appointments = appointmentRepository.findByAnimalIdAndDateTimeBetween(animalId, startDateTime, endDateTime);
+        List<Appointment> appointments = appointmentRepository.findByAnimalAnimalIdAndDateTimeBetween(animalId, startDateTime, endDateTime);
         return AppointmentMapper.toResponseList(appointments);
     }
 

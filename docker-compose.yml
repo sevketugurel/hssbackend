@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: hss-postgres-dev
+    environment:
+      POSTGRES_DB: hss_dev
+      POSTGRES_USER: hss-dev-user
+      POSTGRES_PASSWORD: DevPassword123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/main/resources/db/init:/docker-entrypoint-initdb.d
+    networks:
+      - hss-network
+
+  # Optional: pgAdmin for database management
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: hss-pgadmin-dev
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@hss.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    networks:
+      - hss-network
+
+volumes:
+  postgres_data:
+
+networks:
+  hss-network:
+    driver: bridge

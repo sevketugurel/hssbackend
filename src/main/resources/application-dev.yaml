@@ -1,9 +1,9 @@
 spring:
-  # Development Database Configuration (Local PostgreSQL)
+  # Development Database Configuration (Cloud SQL)
   datasource:
-    url: jdbc:postgresql://localhost:5432/hss_dev
-    username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: jdbc:postgresql:///hss_dev?cloudSqlInstance=${GCP_SQL_INSTANCE_CONNECTION_NAME}&socketFactory=com.google.cloud.sql.postgres.SocketFactory
+    username: ${DB_USERNAME:hss-dev-user}
+    password: ${DB_PASSWORD:DevPassword123!}
     driver-class-name: org.postgresql.Driver
   
   # JPA Configuration for Development
@@ -22,12 +22,12 @@ spring:
   cloud:
     gcp:
       sql:
-        enabled: false  # Disable Cloud SQL for local development
+        enabled: true  # Enable Cloud SQL for development
         database-name: hss_dev
-        instance-connection-name: ${GCP_SQL_INSTANCE_CONNECTION_NAME:}
+        instance-connection-name: ${GCP_SQL_INSTANCE_CONNECTION_NAME:hss-cloud-473511:europe-west3:hss-sql}
       storage:
-        bucket-name: ${GCP_STORAGE_BUCKET:hss-dev-storage-bucket}
-        project-id: ${GCP_PROJECT_ID:hss-project-id}
+        bucket-name: ${GCP_STORAGE_BUCKET:hss-files}
+        project-id: ${GCP_PROJECT_ID:hss-cloud-473511}
   
   # Security Configuration for Development
   security:
