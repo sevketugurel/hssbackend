@@ -31,3 +31,18 @@ build/
 
 ### VS Code ###
 .vscode/
+.env
+.env.local
+.env.production
+.env.development
+.env.test
+.env.development.local
+.env.test.local
+.env.production.local
+.env.development.local.example
+.env.test.local.example
+.env.production.local.example
+.env.development.example
+.env.test.example
+.env.production.example
+.env.example

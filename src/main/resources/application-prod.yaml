@@ -40,6 +40,12 @@ spring:
         jwt:
           issuer-uri: ${JWT_ISSUER_URI}
 
+# Server Configuration for Production
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /
+
 # Production specific logging
 logging:
   level:
