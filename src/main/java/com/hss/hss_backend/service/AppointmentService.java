@@ -1,5 +1,7 @@
 package com.hss.hss_backend.service;
 
+import com.hss.hss_backend.dto.request.AppointmentCreateRequest;
+import com.hss.hss_backend.dto.request.AppointmentUpdateRequest;
 import com.hss.hss_backend.dto.response.AppointmentResponse;
 import com.hss.hss_backend.entity.Animal;
 import com.hss.hss_backend.entity.Appointment;
@@ -88,6 +90,26 @@ public class AppointmentService {
         return AppointmentMapper.toResponseList(appointments);
     }
 
+    public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
+        log.info("Creating appointment for animal ID: {} at {}", request.getAnimalId(), request.getDateTime());
+        
+        Animal animal = animalRepository.findById(request.getAnimalId())
+                .orElseThrow(() -> new ResourceNotFoundException("Animal", request.getAnimalId()));
+
+        Appointment appointment = Appointment.builder()
+                .animal(animal)
+                .dateTime(request.getDateTime())
+                .subject(request.getSubject())
+                .veterinarianId(request.getVeterinarianId())
+                .status(Appointment.Status.SCHEDULED)
+                .notes(request.getNotes())
+                .build();
+
+        Appointment savedAppointment = appointmentRepository.save(appointment);
+        log.info("Appointment created successfully with ID: {}", savedAppointment.getAppointmentId());
+        return AppointmentMapper.toResponse(savedAppointment);
+    }
+
     public AppointmentResponse createAppointment(Long animalId, LocalDateTime dateTime, String subject, Long veterinarianId, String notes) {
         log.info("Creating appointment for animal ID: {} at {}", animalId, dateTime);
         
@@ -117,6 +139,21 @@ public class AppointmentService {
         Appointment updatedAppointment = appointmentRepository.save(appointment);
         
         log.info("Appointment status updated successfully");
+        return AppointmentMapper.toResponse(updatedAppointment);
+    }
+
+    public AppointmentResponse updateAppointment(Long id, AppointmentUpdateRequest request) {
+        log.info("Updating appointment with ID: {}", id);
+        Appointment appointment = appointmentRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Appointment", id));
+        
+        appointment.setDateTime(request.getDateTime());
+        appointment.setSubject(request.getSubject());
+        appointment.setVeterinarianId(request.getVeterinarianId());
+        appointment.setNotes(request.getNotes());
+        
+        Appointment updatedAppointment = appointmentRepository.save(appointment);
+        log.info("Appointment updated successfully with ID: {}", updatedAppointment.getAppointmentId());
         return AppointmentMapper.toResponse(updatedAppointment);
     }
 

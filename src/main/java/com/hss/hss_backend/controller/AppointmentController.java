@@ -1,8 +1,11 @@
 package com.hss.hss_backend.controller;
 
+import com.hss.hss_backend.dto.request.AppointmentCreateRequest;
+import com.hss.hss_backend.dto.request.AppointmentUpdateRequest;
 import com.hss.hss_backend.dto.response.AppointmentResponse;
 import com.hss.hss_backend.entity.Appointment;
 import com.hss.hss_backend.service.AppointmentService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -96,14 +99,9 @@ public class AppointmentController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('VETERINARIAN') or hasRole('STAFF') or hasRole('RECEPTIONIST')")
-    public ResponseEntity<AppointmentResponse> createAppointment(
-            @RequestParam Long animalId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTime,
-            @RequestParam(required = false) String subject,
-            @RequestParam(required = false) Long veterinarianId,
-            @RequestParam(required = false) String notes) {
-        log.info("Creating appointment for animal ID: {} at {}", animalId, dateTime);
-        AppointmentResponse response = appointmentService.createAppointment(animalId, dateTime, subject, veterinarianId, notes);
+    public ResponseEntity<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentCreateRequest request) {
+        log.info("Creating appointment for animal ID: {} at {}", request.getAnimalId(), request.getDateTime());
+        AppointmentResponse response = appointmentService.createAppointment(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
@@ -121,12 +119,9 @@ public class AppointmentController {
     @PreAuthorize("hasRole('ADMIN') or hasRole('VETERINARIAN') or hasRole('STAFF') or hasRole('RECEPTIONIST')")
     public ResponseEntity<AppointmentResponse> updateAppointment(
             @PathVariable Long id,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime dateTime,
-            @RequestParam(required = false) String subject,
-            @RequestParam(required = false) Long veterinarianId,
-            @RequestParam(required = false) String notes) {
+            @Valid @RequestBody AppointmentUpdateRequest request) {
         log.info("Updating appointment with ID: {}", id);
-        AppointmentResponse response = appointmentService.updateAppointment(id, dateTime, subject, veterinarianId, notes);
+        AppointmentResponse response = appointmentService.updateAppointment(id, request);
         return ResponseEntity.ok(response);
     }
 

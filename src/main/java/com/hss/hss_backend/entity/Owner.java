@@ -1,6 +1,7 @@
 package com.hss.hss_backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,18 +24,27 @@ public class Owner extends BaseEntity {
     @Column(name = "owner_id")
     private Long ownerId;
 
+    @NotBlank(message = "First name is required")
+    @Size(max = 100, message = "First name must not exceed 100 characters")
     @Column(name = "first_name", nullable = false, length = 100)
     private String firstName;
 
+    @NotBlank(message = "Last name is required")
+    @Size(max = 100, message = "Last name must not exceed 100 characters")
     @Column(name = "last_name", nullable = false, length = 100)
     private String lastName;
 
+    @Size(max = 20, message = "Phone must not exceed 20 characters")
+    @Pattern(regexp = "^[+]?[0-9\\s\\-()]*$", message = "Phone number format is invalid")
     @Column(name = "phone", length = 20)
     private String phone;
 
+    @Email(message = "Email should be valid")
+    @Size(max = 100, message = "Email must not exceed 100 characters")
     @Column(name = "email", length = 100)
     private String email;
 
+    @Size(max = 500, message = "Address must not exceed 500 characters")
     @Column(name = "address", columnDefinition = "TEXT")
     private String address;
 

@@ -1,6 +1,7 @@
 package com.hss.hss_backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -29,6 +30,8 @@ public class Animal extends BaseEntity {
     @JoinColumn(name = "owner_id", nullable = false)
     private Owner owner;
 
+    @NotBlank(message = "Animal name is required")
+    @Size(max = 100, message = "Animal name must not exceed 100 characters")
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
@@ -47,21 +50,28 @@ public class Animal extends BaseEntity {
     @Column(name = "birth_date")
     private LocalDate birthDate;
 
+    @DecimalMin(value = "0.0", message = "Weight must be positive")
+    @DecimalMax(value = "999.99", message = "Weight must not exceed 999.99")
     @Column(name = "weight", precision = 5, scale = 2)
     private BigDecimal weight;
 
+    @Size(max = 50, message = "Color must not exceed 50 characters")
     @Column(name = "color", length = 50)
     private String color;
 
+    @Size(max = 50, message = "Microchip number must not exceed 50 characters")
     @Column(name = "microchip_no", length = 50, unique = true)
     private String microchipNo;
 
+    @Size(max = 1000, message = "Allergies must not exceed 1000 characters")
     @Column(name = "allergies", columnDefinition = "TEXT")
     private String allergies;
 
+    @Size(max = 1000, message = "Chronic diseases must not exceed 1000 characters")
     @Column(name = "chronic_diseases", columnDefinition = "TEXT")
     private String chronicDiseases;
 
+    @Size(max = 1000, message = "Notes must not exceed 1000 characters")
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 

@@ -1,6 +1,7 @@
 package com.hss.hss_backend.entity;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -27,6 +28,8 @@ public class Breed extends BaseEntity {
     @JoinColumn(name = "species_id", nullable = false)
     private Species species;
 
+    @NotBlank(message = "Breed name is required")
+    @Size(max = 100, message = "Breed name must not exceed 100 characters")
     @Column(name = "name", nullable = false, length = 100)
     private String name;
 
