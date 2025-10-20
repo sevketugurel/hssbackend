@@ -5,6 +5,11 @@ spring:
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 30000
+      initialization-fail-timeout: 0
+      maximum-pool-size: 10
+      minimum-idle: 2
   
   cloud:
     gcp:
@@ -29,6 +34,14 @@ spring:
         connection:
           provider_disables_autocommit: true
   
+  # Flyway Configuration for Production
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+    fail-on-missing-locations: false
+  
   # Security Configuration for Production
   security:
     oauth2:
@@ -41,6 +54,23 @@ server:
   port: ${PORT:8080}
   servlet:
     context-path: /
+  address: 0.0.0.0
+
+# Management Configuration for Production
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: always
+  server:
+    port: ${PORT:8080}
+  metrics:
+    export:
+      prometheus:
+        enabled: true
 
 # Production specific logging
 logging:

@@ -47,8 +47,8 @@ USER appuser
 EXPOSE 8080
 
 # Health check (use PORT environment variable)
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8080}/actuator/health || exit 1
 
-# Run the application
-ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8080} -jar app.jar"]
+# Run the application with proper JVM settings for Cloud Run
+ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -Xmx512m -XX:+UseG1GC -jar app.jar"]

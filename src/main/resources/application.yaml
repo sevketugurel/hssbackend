@@ -47,7 +47,7 @@ firebase:
 
 # Server Configuration
 server:
-  port: ${PORT:8090}
+  port: ${PORT:8080}
   servlet:
     context-path: /
 
@@ -60,6 +60,8 @@ management:
   endpoint:
     health:
       show-details: always
+  server:
+    port: ${PORT:8080}
   metrics:
     export:
       prometheus:
