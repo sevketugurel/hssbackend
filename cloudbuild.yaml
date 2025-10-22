@@ -1,6 +1,5 @@
 # Cloud Build configuration for HSS Backend
-# Triggers: main branch (dev), v* tags (prod)
-
+# Triggers: develop branch (dev), v* tags (prod)
 
 steps:
   # 1. Test aşaması
@@ -76,7 +75,6 @@ steps:
         echo "✅ Cloud Run deploy başarılı: ${_SERVICE_NAME}"
 
   # 6. Release artifacts oluştur (sadece prod için) 
-
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -84,10 +82,6 @@ steps:
       - |
         if [ "${_ENVIRONMENT}" = "prod" ]; then
           echo "📦 Release artifacts oluşturuluyor..."
-          
-          # Release klasörü oluştur
-          VERSION=${_VERSION_VAR}
-          BUCKET=gs://${_BUCKET_VAR}
           
           # Backend image referansı
           echo "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}" > backend-image.txt
@@ -99,7 +93,7 @@ steps:
           "changes": ["Backend production deployment"],
           "artifacts": {
             "backend": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}",
-            "frontend": "https://storage.googleapis.com/${_BUCKET}/releases/${_VERSION}/frontend/"
+            "frontend": "https://storage.googleapis.com/${_BUCKET_NAME}/releases/${_VERSION}/frontend/"
           },
           "forced": false,
           "channel": "prod",
@@ -108,11 +102,11 @@ steps:
         EOF
           
           # Cloud Storage'a yükle
-          gsutil -m cp backend-image.txt $BUCKET/releases/${_VERSION}/
-          gsutil -m cp manifest.json $BUCKET/releases/${_VERSION}/
+          gsutil -m cp backend-image.txt gs://${_BUCKET_NAME}/releases/${_VERSION}/
+          gsutil -m cp manifest.json gs://${_BUCKET_NAME}/releases/${_VERSION}/
           
           # Latest pointer'ını güncelle
-          gsutil -m cp manifest.json $BUCKET/releases/latest/manifest.json
+          gsutil -m cp manifest.json gs://${_BUCKET_NAME}/releases/latest/manifest.json
           
           echo "✅ Release artifacts oluşturuldu!"
         else
@@ -135,7 +129,7 @@ steps:
           --payload='{
             "service": "hss-backend",
             "environment": "${_ENVIRONMENT}",
-            "version": "${_TAG_NAME}",
+            "version": "${_VERSION}",
             "commit_sha": "${SHORT_SHA}",
             "deployment_time": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
           }'
@@ -150,16 +144,13 @@ substitutions:
   _CONNECTION_NAME: 'hss-cloud-473511:europe-west3:hss-sql'
   _DB_USERNAME_SECRET: 'DB_USERNAME'
   _DB_PASSWORD_SECRET: 'DB_PASSWORD'
-  _ENVIRONMENT: 'dev'  # Bu değer trigger'da override edilecek
-  _SERVICE_NAME: 'hss-backend-dev'  # Bu değer trigger'da override edilecek
-  _SPRING_PROFILE: 'dev'  # Bu değer trigger'da override edilecek
-  _MIN_INSTANCES: '0'  # Bu değer trigger'da override edilecek
-  _MAX_INSTANCES: '2'  # Bu değer trigger'da override edilecek
-  _VERSION: 'dev'  # Bu değer trigger'da override edilecek
-  _TAG_NAME: 'dev'  # Bu değer trigger'da override edilecek
-  _BUCKET: 'hss-releases-hss-cloud-473511'  # Bu değer trigger'da override edilecek
-  _VERSION_VAR: 'dev'  # Shell variable için
-  _BUCKET_VAR: 'hss-releases-hss-cloud-473511'  # Shell variable için
+  _ENVIRONMENT: 'dev'
+  _SERVICE_NAME: 'hss-backend-dev'
+  _SPRING_PROFILE: 'dev'
+  _MIN_INSTANCES: '0'
+  _MAX_INSTANCES: '2'
+  _VERSION: 'dev'
+  _BUCKET_NAME: 'hss-releases-hss-cloud-473511'
 
 # Build options
 options:
