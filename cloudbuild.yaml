@@ -16,6 +16,10 @@ steps:
         echo "REGION: ${_REGION}"
         echo "REPO_NAME: ${_REPO_NAME}"
         echo "TAG_NAME: ${_TAG_NAME}"
+        echo "SERVICE_NAME: ${_SERVICE_NAME}"
+        echo "ENVIRONMENT: ${_ENVIRONMENT}"
+        echo "SPRING_PROFILE: ${_SPRING_PROFILE}"
+        echo "CONNECTION_NAME: ${_CONNECTION_NAME}"
         echo "Full image path: ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
         
         # Artifact Registry repository'nin var olup olmadığını kontrol et
@@ -114,6 +118,9 @@ steps:
         echo "Image: $$MY_IMG_FULL"
         echo "Service: ${_SERVICE_NAME}"
         echo "Region: ${_REGION}"
+        echo "Environment: ${_ENVIRONMENT}"
+        echo "Spring Profile: ${_SPRING_PROFILE}"
+        echo "Connection Name: ${_CONNECTION_NAME}"
         
         # Mevcut revision'ı kaydet (rollback için)
         MY_CURR_REV=$$(gcloud run services describe ${_SERVICE_NAME} \
@@ -136,10 +143,12 @@ steps:
           --min-instances=${_MIN_INSTANCES} \
           --max-instances=${_MAX_INSTANCES} \
           --port=8080 \
-          --memory=512Mi \
-          --cpu=1 \
-          --timeout=300 \
+          --memory=1Gi \
+          --cpu=2 \
+          --timeout=600 \
           --concurrency=80 \
+          --no-cpu-throttling \
+          --cpu-boost \
           --quiet
         
         # Service URL'i al
@@ -150,15 +159,37 @@ steps:
         echo "✅ Deploy başarılı!"
         echo "🌐 Service URL: $$MY_SVC_URL"
         
-        # Basit health check
+        # Detaylı health check
         echo "🔍 Health check yapılıyor..."
-        sleep 10  # Service'in hazır olması için bekle
+        echo "Service URL: $$MY_SVC_URL"
+        echo "Health check endpoint: $$MY_SVC_URL/actuator/health"
         
-        if curl -sf -m 30 "$$MY_SVC_URL/actuator/health" > /dev/null 2>&1; then
-          echo "✅ Health check başarılı!"
+        # Service'in tamamen hazır olması için daha uzun bekle
+        echo "⏳ Service'in başlamasını bekliyoruz (60 saniye)..."
+        sleep 60
+        
+        # Health check'i birkaç kez dene
+        for i in {1..5}; do
+          echo "🔄 Health check denemesi $i/5..."
+          if curl -sf -m 60 "$$MY_SVC_URL/actuator/health" > /dev/null 2>&1; then
+            echo "✅ Health check başarılı!"
+            break
+          else
+            echo "❌ Health check başarısız (deneme $i/5)"
+            if [ $i -lt 5 ]; then
+              echo "⏳ 30 saniye bekleyip tekrar denenecek..."
+              sleep 30
+            fi
+          fi
+        done
+        
+        # Son kontrol
+        if curl -sf -m 60 "$$MY_SVC_URL/actuator/health" > /dev/null 2>&1; then
+          echo "✅ Final health check başarılı!"
         else
           echo "⚠️  Health check başarısız oldu, ancak deploy tamamlandı"
           echo "Manuel kontrol edin: $$MY_SVC_URL/actuator/health"
+          echo "Cloud Run logs: https://console.cloud.google.com/run/detail/${_REGION}/${_SERVICE_NAME}/logs"
         fi
     waitFor: ['docker-push']
 
