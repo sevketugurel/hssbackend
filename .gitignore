@@ -46,3 +46,6 @@ build/
 .env.test.example
 .env.production.example
 .env.example
+**/*credentials*.json
+**/service-account*.json
+**/*key*.json
