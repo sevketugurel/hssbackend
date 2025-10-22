@@ -72,6 +72,9 @@ steps:
         echo "🐳 Docker image build başlıyor..."
         echo "Environment: ${_ENVIRONMENT}, Tag: ${_TAG_NAME}"
 
+        # hss-backend dizinine geç
+        cd hss-backend
+
         # Multiple cache sources for better hit rate
         docker pull "$${MY_IMG_PATH}:latest" || echo "No latest image found"
         docker pull "$${MY_IMG_PATH}:${_TAG_NAME}" || echo "No tagged image found"
@@ -88,7 +91,7 @@ steps:
           --build-arg VCS_REF=${SHORT_SHA} \
           --build-arg ENVIRONMENT=${_ENVIRONMENT} \
           --progress=plain \
-          hss-backend
+          .
 
         echo "✅ Docker build başarılı!"
     waitFor: ['test', 'build']
