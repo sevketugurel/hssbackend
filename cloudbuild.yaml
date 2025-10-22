@@ -86,7 +86,7 @@ steps:
           echo "📦 Release artifacts oluşturuluyor..."
           
           # Release klasörü oluştur
-          VERSION=${_TAG_NAME}
+          VERSION=${_VERSION}
           BUCKET=gs://hss-releases-${PROJECT_ID}
           
           # Backend image referansı
@@ -95,11 +95,11 @@ steps:
           # Manifest oluştur
           cat > manifest.json << EOF
         {
-          "version": "$VERSION",
+          "version": "${_VERSION}",
           "changes": ["Backend production deployment"],
           "artifacts": {
             "backend": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}",
-            "frontend": "https://storage.googleapis.com/hss-releases-${PROJECT_ID}/releases/$VERSION/frontend/"
+            "frontend": "https://storage.googleapis.com/hss-releases-${PROJECT_ID}/releases/${_VERSION}/frontend/"
           },
           "forced": false,
           "channel": "prod",
@@ -108,8 +108,8 @@ steps:
         EOF
           
           # Cloud Storage'a yükle
-          gsutil -m cp backend-image.txt $BUCKET/releases/$VERSION/
-          gsutil -m cp manifest.json $BUCKET/releases/$VERSION/
+          gsutil -m cp backend-image.txt $BUCKET/releases/${_VERSION}/
+          gsutil -m cp manifest.json $BUCKET/releases/${_VERSION}/
           
           # Latest pointer'ını güncelle
           gsutil -m cp manifest.json $BUCKET/releases/latest/manifest.json
@@ -155,6 +155,8 @@ substitutions:
   _SPRING_PROFILE: 'dev'  # Bu değer trigger'da override edilecek
   _MIN_INSTANCES: '0'  # Bu değer trigger'da override edilecek
   _MAX_INSTANCES: '2'  # Bu değer trigger'da override edilecek
+  _VERSION: 'dev'  # Bu değer trigger'da override edilecek
+  _TAG_NAME: 'dev'  # Bu değer trigger'da override edilecek
 
 # Build options
 options:
