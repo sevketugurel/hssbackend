@@ -56,19 +56,17 @@ steps:
         
         # Environment'a göre servis adı belirle
         if [ "${_ENVIRONMENT}" = "prod" ]; then
-          SERVICE_NAME="hss-backend"
           SPRING_PROFILE="prod"
           MIN_INSTANCES="1"
           MAX_INSTANCES="5"
         else
-          SERVICE_NAME="hss-backend-dev"
           SPRING_PROFILE="dev"
           MIN_INSTANCES="0"
           MAX_INSTANCES="2"
         fi
         
         # Cloud Run deploy
-        gcloud run deploy $SERVICE_NAME \
+        gcloud run deploy ${_SERVICE_NAME} \
           --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA} \
           --region=${_REGION} \
           --service-account=${_SERVICE_ACCOUNT} \
@@ -86,7 +84,7 @@ steps:
           --timeout=300 \
           --concurrency=80
         
-        echo "✅ Cloud Run deploy başarılı: $SERVICE_NAME"
+        echo "✅ Cloud Run deploy başarılı: ${_SERVICE_NAME}"
 
   # 6. Release artifacts oluştur (sadece prod için) 
 
@@ -164,6 +162,7 @@ substitutions:
   _DB_USERNAME_SECRET: 'DB_USERNAME'
   _DB_PASSWORD_SECRET: 'DB_PASSWORD'
   _ENVIRONMENT: 'dev'  # Bu değer trigger'da override edilecek
+  _SERVICE_NAME: 'hss-backend-dev'  # Bu değer trigger'da override edilecek
 
 # Build options
 options:
