@@ -2,25 +2,7 @@
 # Triggers: develop branch (dev), v* tags (prod)
 
 steps:
-  # 1. Java kurulumu ve Maven dependency cache
-  - name: 'gcr.io/cloud-builders/gcloud'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "☕ Java 21 kurulumu ve Maven cache..."
-        
-        # Java 21 kurulumu
-        apt-get update && apt-get install -y openjdk-21-jdk
-        export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-        export PATH=$JAVA_HOME/bin:$PATH
-        
-        # Maven dependency'lerini cache'le
-        ./mvnw dependency:go-offline -B
-        
-        echo "✅ Java kurulumu ve Maven cache tamamlandı!"
-
-  # 2. Test ve Build (tek step'te)
+  # 1. Test ve Build (Java 21 ile)
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -28,15 +10,16 @@ steps:
       - |
         echo "🧪 Test ve build çalıştırılıyor..."
         
-        # Java environment
+        # Java 21 kurulumu
+        apt-get update && apt-get install -y openjdk-21-jdk
         export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
-        export PATH=$JAVA_HOME/bin:$PATH
+        export PATH=$$JAVA_HOME/bin:$$PATH
         
         # Test ve build
         ./mvnw -B clean package
         echo "✅ Test ve build başarılı!"
 
-  # 3. Docker image build
+  # 2. Docker image build
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
@@ -46,7 +29,7 @@ steps:
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:latest'
       - '.'
 
-  # 4. Docker image push
+  # 3. Docker image push
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
@@ -57,7 +40,7 @@ steps:
       - 'push'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:latest'
 
-  # 5. Cloud Run deploy
+  # 4. Cloud Run deploy
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args: 
@@ -86,7 +69,7 @@ steps:
         
         echo "✅ Cloud Run deploy başarılı: ${_SERVICE_NAME}"
 
-  # 6. Release artifacts oluştur (sadece prod için) 
+  # 5. Release artifacts oluştur (sadece prod için) 
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -125,7 +108,7 @@ steps:
           echo "ℹ️  DEV deployment - release artifacts oluşturulmadı"
         fi
 
-  # 7. Monitoring metrics gönder
+  # 6. Monitoring metrics gönder
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
@@ -161,7 +144,7 @@ substitutions:
   _MAX_INSTANCES: '2'
   _VERSION: 'dev'
   _BUCKET_NAME: 'hss-releases-hss-cloud-473511'
-  _TAG_NAME: 'dev-${SHORT_SHA}'
+  _TAG_NAME: 'dev-manual'
 
 # Build options
 options:
