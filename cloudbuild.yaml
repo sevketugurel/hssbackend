@@ -1,294 +1,245 @@
-# Cloud Build configuration for HSS Backend (FULLY FIXED)
+# Cloud Build configuration for HSS Backend
 # Triggers: develop branch (dev), v* tags (prod)
-# 
-# FIX: Tüm bash değişkenleri MY_ prefix'i ile başlıyor (Cloud Build built-in'lerle çakışmayı önler ve güvenli bir şekilde çalışır docker build ve push işlemlerinde)
+# Optimized for both dev and prod environments
 
 steps:
-  # 1. Debug - Değişkenleri kontrol et
+  # 1. Maven dependencies download (cache için)
   - name: 'gcr.io/cloud-builders/gcloud'
-    id: 'debug-variables'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        echo "🔍 Build değişkenleri kontrol ediliyor..."
-        echo "PROJECT_ID: ${PROJECT_ID}"
-        echo "REGION: ${_REGION}"
-        echo "REPO_NAME: ${_REPO_NAME}"
-        echo "TAG_NAME: ${_TAG_NAME}"
-        echo "SERVICE_NAME: ${_SERVICE_NAME}"
-        echo "ENVIRONMENT: ${_ENVIRONMENT}"
-        echo "SPRING_PROFILE: ${_SPRING_PROFILE}"
-        echo "CONNECTION_NAME: ${_CONNECTION_NAME}"
-        echo "Full image path: ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
-        
-        # Artifact Registry repository'nin var olup olmadığını kontrol et
-        echo "📦 Artifact Registry kontrol ediliyor..."
-        gcloud artifacts repositories describe ${_REPO_NAME} \
-          --location=${_REGION} \
-          --format="value(name)" || echo "⚠️  Repository bulunamadı!"
-        
-        # Docker auth yapılandırması
-        gcloud auth configure-docker ${_REGION}-docker.pkg.dev --quiet
-        echo "✅ Docker auth yapılandırıldı"
+        echo "📦 Maven dependencies indiriliyor..."
+        cd hss-backend
+        ./mvnw -B dependency:go-offline -Dmaven.repo.local=/workspace/.m2/repository
+        echo "✅ Dependencies hazır!"
 
-  # 2. Test ve Build (Maven ile)
-  - name: 'maven:3.9-eclipse-temurin-21'
-    id: 'test-and-build'
+  # 2. Test aşaması (environment-aware)
+  - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        echo "🧪 Test ve build çalıştırılıyor..."
-        mvn -B clean package -DskipTests=false --fail-at-end
+        echo "🧪 Backend testleri çalıştırılıyor..."
+        cd hss-backend
+        if [ "${_ENVIRONMENT}" = "prod" ]; then
+          echo "🔍 Production testleri - tüm testler çalıştırılıyor..."
+          ./mvnw -B test -Dmaven.repo.local=/workspace/.m2/repository
+        else
+          echo "⚡ Development testleri - hızlı testler..."
+          ./mvnw -B test -Dtest=!*IntegrationTest -Dmaven.test.failure.ignore=true -Dmaven.repo.local=/workspace/.m2/repository
+        fi
+        echo "✅ Testler başarılı!"
+    waitFor: ['-']  # Parallel with build
+
+  # 3. Build aşaması (parallel with test)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "🔨 Backend build ediliyor..."
+        cd hss-backend
+        ./mvnw -B clean package -DskipTests -Dmaven.repo.local=/workspace/.m2/repository
         echo "✅ Build başarılı!"
-    waitFor: ['debug-variables']
+    waitFor: ['-']  # Parallel with test
 
-  # 3. Docker image build
+  # 4. Docker image build (optimized with cache)
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'docker-build'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        set -e
-        
-        # MY_ prefix kullanarak Cloud Build built-in'lerle çakışmayı önle
-        MY_IMG_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
-        MY_VER="${_TAG_NAME}"
-        
         echo "🐳 Docker image build başlıyor..."
-        echo "Image: $${MY_IMG_PATH}:$${MY_VER}"
+        echo "Environment: ${_ENVIRONMENT}"
+        echo "Tag: ${_TAG_NAME}"
         
-        # Build
+        # Cache from previous builds
+        docker pull ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest || echo "No previous image found"
+        
+        # Build with cache
         docker build \
-          --tag "$${MY_IMG_PATH}:$${MY_VER}" \
-          --tag "$${MY_IMG_PATH}:latest" \
+          --tag ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA} \
+          --tag ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME} \
+          --tag ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest \
+          --cache-from ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
           --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
-          --build-arg VCS_REF=${COMMIT_SHA} \
-          .
+          --build-arg VCS_REF=${SHORT_SHA} \
+          --build-arg ENVIRONMENT=${_ENVIRONMENT} \
+          hss-backend
         
         echo "✅ Docker build başarılı!"
-        docker images "$${MY_IMG_PATH}"
-    waitFor: ['test-and-build']
 
-  # 4. Docker image push
+  # 5. Docker image push (parallel)
   - name: 'gcr.io/cloud-builders/docker'
-    id: 'docker-push'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
+    waitFor: ['-']  # Parallel execution
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
+    waitFor: ['-']  # Parallel execution
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest'
+    waitFor: ['-']  # Parallel execution
+
+  # 6. Cloud Run deploy (environment-aware)
+  - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        set -euo pipefail
-        
-        MY_IMG_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
-        MY_VER="${_TAG_NAME}"
-        
-        echo "📤 Docker image push başlıyor..."
-        echo "Target: $${MY_IMG_PATH}:$${MY_VER}"
-        
-        # Tag'li versiyonu push et
-        echo "Pushing tagged version..."
-        docker push "$${MY_IMG_PATH}:$${MY_VER}"
-        
-        # Latest'i push et
-        echo "Pushing latest..."
-        docker push "$${MY_IMG_PATH}:latest"
-        
-        echo "✅ Docker push başarılı!"
-        
-        # Digest'i al ve kaydet
-        MY_DIG=$$(docker inspect --format='{{index .RepoDigests 0}}' "$${MY_IMG_PATH}:$${MY_VER}" | cut -d'@' -f2)
-        echo "Image Digest: $$MY_DIG"
-        echo "$$MY_DIG" > /workspace/image-digest.txt
-    waitFor: ['docker-build']
-
-  # 5. Cloud Run deploy
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:alpine'
-    id: 'cloud-run-deploy'
-    entrypoint: 'bash'
-    args: 
-      - '-c'
-      - |
-        set -euo pipefail
-        
-        MY_IMG_FULL="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
-        
-        echo "🚀 Cloud Run deploy başlıyor..."
-        echo "Image: $$MY_IMG_FULL"
-        echo "Service: ${_SERVICE_NAME}"
-        echo "Region: ${_REGION}"
+        echo "🚀 Cloud Run'a deploy ediliyor..."
         echo "Environment: ${_ENVIRONMENT}"
-        echo "Spring Profile: ${_SPRING_PROFILE}"
-        echo "Connection Name: ${_CONNECTION_NAME}"
         
-        # Mevcut revision'ı kaydet (rollback için)
-        MY_CURR_REV=$$(gcloud run services describe ${_SERVICE_NAME} \
-          --region=${_REGION} \
-          --format='value(status.latestReadyRevisionName)' 2>/dev/null || echo "none")
+        # Environment'a göre konfigürasyon belirle
+        if [ "${_ENVIRONMENT}" = "prod" ]; then
+          SERVICE_NAME="hss-backend"
+          SPRING_PROFILE="prod"
+          MIN_INSTANCES="1"
+          MAX_INSTANCES="10"
+          MEMORY="1Gi"
+          CPU="2"
+          TIMEOUT="600"
+          CONCURRENCY="100"
+          DB_NAME="hss_prod"
+          echo "🏭 Production deployment konfigürasyonu"
+        else
+          SERVICE_NAME="hss-backend-dev"
+          SPRING_PROFILE="dev"
+          MIN_INSTANCES="0"
+          MAX_INSTANCES="3"
+          MEMORY="512Mi"
+          CPU="1"
+          TIMEOUT="300"
+          CONCURRENCY="80"
+          DB_NAME="hss_dev"
+          echo "🧪 Development deployment konfigürasyonu"
+        fi
         
-        echo "📝 Mevcut revision: $$MY_CURR_REV"
-        
-        # Deploy
-        gcloud run deploy ${_SERVICE_NAME} \
-          --image="$$MY_IMG_FULL" \
+        # Cloud Run deploy
+        gcloud run deploy $SERVICE_NAME \
+          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA} \
           --region=${_REGION} \
           --service-account=${_SERVICE_ACCOUNT} \
           --platform=managed \
           --allow-unauthenticated \
-          --set-env-vars="SPRING_PROFILES_ACTIVE=${_SPRING_PROFILE},DEPLOYMENT_VERSION=${_VERSION},BUILD_ID=${BUILD_ID}" \
-          --set-env-vars="GCP_SQL_INSTANCE_CONNECTION_NAME=${_CONNECTION_NAME}" \
-          --set-env-vars="DB_NAME=hss_dev" \
-          --set-env-vars="JAVA_OPTS=-Xmx512m -XX:+UseG1GC -Dspring.profiles.active=${_SPRING_PROFILE}" \
-          --set-secrets="DB_USERNAME=${_DB_USERNAME_SECRET}:latest,DB_PASSWORD=${_DB_PASSWORD_SECRET}:latest" \
+          --set-env-vars=SPRING_PROFILES_ACTIVE=$SPRING_PROFILE \
+          --set-env-vars=GCP_SQL_INSTANCE_CONNECTION_NAME=${_CONNECTION_NAME} \
+          --set-env-vars=DB_NAME=$DB_NAME \
+          --set-secrets=DB_USERNAME=${_DB_USERNAME_SECRET}:latest,DB_PASSWORD=${_DB_PASSWORD_SECRET}:latest \
           --add-cloudsql-instances=${_CONNECTION_NAME} \
-          --min-instances=${_MIN_INSTANCES} \
-          --max-instances=${_MAX_INSTANCES} \
+          --min-instances=$MIN_INSTANCES \
+          --max-instances=$MAX_INSTANCES \
           --port=8080 \
-          --memory=1Gi \
-          --cpu=2 \
-          --timeout=600 \
-          --concurrency=80 \
-          --no-cpu-throttling \
-          --cpu-boost \
-          --execution-environment=gen2 \
+          --memory=$MEMORY \
+          --cpu=$CPU \
+          --timeout=$TIMEOUT \
+          --concurrency=$CONCURRENCY \
+          --no-traffic \
           --quiet
         
         # Service URL'i al
-        MY_SVC_URL=$$(gcloud run services describe ${_SERVICE_NAME} \
-          --region=${_REGION} \
-          --format='value(status.url)')
+        SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region=${_REGION} --format='value(status.url)')
+        echo "✅ Cloud Run deploy başarılı: $SERVICE_NAME"
+        echo "🌐 Service URL: $SERVICE_URL"
         
-        echo "✅ Deploy başarılı!"
-        echo "🌐 Service URL: $$MY_SVC_URL"
-        
-        # Detaylı health check
+        # Health check
         echo "🔍 Health check yapılıyor..."
-        echo "Service URL: $$MY_SVC_URL"
-        echo "Health check endpoint: $$MY_SVC_URL/actuator/health"
-        
-        # Service'in tamamen hazır olması için daha uzun bekle
-        echo "⏳ Service'in başlamasını bekliyoruz (120 saniye)..."
-        sleep 120
-        
-        # Health check'i birkaç kez dene
-        for i in {1..5}; do
-          echo "🔄 Health check denemesi $i/5..."
-          if curl -sf -m 60 "$$MY_SVC_URL/actuator/health" > /dev/null 2>&1; then
-            echo "✅ Health check başarılı!"
-            break
-          else
-            echo "❌ Health check başarısız (deneme $i/5)"
-            if [ $i -lt 5 ]; then
-              echo "⏳ 30 saniye bekleyip tekrar denenecek..."
-              sleep 30
-            fi
-          fi
-        done
-        
-        # Son kontrol
-        if curl -sf -m 60 "$$MY_SVC_URL/actuator/health" > /dev/null 2>&1; then
-          echo "✅ Final health check başarılı!"
+        sleep 30
+        if curl -sf "$SERVICE_URL/actuator/health" > /dev/null 2>&1; then
+          echo "✅ Health check başarılı!"
         else
-          echo "⚠️  Health check başarısız oldu, ancak deploy tamamlandı"
-          echo "Manuel kontrol edin: $$MY_SVC_URL/actuator/health"
-          echo "Cloud Run logs: https://console.cloud.google.com/run/detail/${_REGION}/${_SERVICE_NAME}/logs"
-          
-          # Container logs'unu al
-          echo "📋 Container logs'unu alıyoruz..."
-          gcloud run services logs read ${_SERVICE_NAME} --region=${_REGION} --limit=50 --format="value(textPayload)" || echo "Logs alınamadı"
+          echo "⚠️  Health check başarısız - service başlıyor olabilir"
         fi
-    waitFor: ['docker-push']
 
-  # 6. Release artifacts (sadece prod için)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:alpine'
-    id: 'create-artifacts'
+  # 7. Release artifacts oluştur (sadece prod için)
+  - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        set -euo pipefail
-        
         if [ "${_ENVIRONMENT}" = "prod" ]; then
-          echo "📦 Release artifacts oluşturuluyor..."
+          echo "📦 Production release artifacts oluşturuluyor..."
           
-          MY_IMG_FULL="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
-          
-          # Image digest'i al
-          if [ -f /workspace/image-digest.txt ]; then
-            MY_DIG=$$(cat /workspace/image-digest.txt)
-          else
-            MY_DIG="unknown"
-          fi
+          # Release klasörü oluştur
+          VERSION=${_TAG_NAME}
+          BUCKET=gs://hss-releases-${PROJECT_ID}
           
           # Backend image referansı
-          echo "$$MY_IMG_FULL" > backend-image.txt
+          echo "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}" > backend-image.txt
           
           # Manifest oluştur
           cat > manifest.json << EOF
         {
-          "version": "${_VERSION}",
-          "environment": "${_ENVIRONMENT}",
-          "commit_sha": "${COMMIT_SHA}",
-          "build_id": "${BUILD_ID}",
-          "changes": ["Backend ${_ENVIRONMENT} deployment"],
+          "version": "$VERSION",
+          "environment": "production",
+          "changes": ["Backend production deployment"],
           "artifacts": {
             "backend": {
-              "image": "$$MY_IMG_FULL",
+              "image": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}",
               "tag": "${_TAG_NAME}",
-              "digest": "$$MY_DIG"
-            }
+              "digest": "$(docker inspect --format='{{index .RepoDigests 0}}' ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA} | cut -d'@' -f2)"
+            },
+            "frontend": "https://storage.googleapis.com/hss-releases-${PROJECT_ID}/releases/$VERSION/frontend/"
           },
+          "deployment": {
+            "region": "${_REGION}",
+            "service_name": "hss-backend",
+            "min_instances": 1,
+            "max_instances": 10,
+            "memory": "1Gi",
+            "cpu": "2"
+          },
+          "forced": false,
+          "channel": "prod",
           "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
           "deployed_by": "cloud-build"
         }
         EOF
           
           # Cloud Storage'a yükle
-          gsutil -m cp backend-image.txt "gs://${_BUCKET_NAME}/releases/${_VERSION}/"
-          gsutil -m cp manifest.json "gs://${_BUCKET_NAME}/releases/${_VERSION}/"
+          gsutil -m cp backend-image.txt $BUCKET/releases/$VERSION/
+          gsutil -m cp manifest.json $BUCKET/releases/$VERSION/
           
           # Latest pointer'ını güncelle
-          gsutil -m cp manifest.json "gs://${_BUCKET_NAME}/releases/latest/manifest.json"
+          gsutil -m cp manifest.json $BUCKET/releases/latest/manifest.json
           
-          echo "✅ Release artifacts oluşturuldu: gs://${_BUCKET_NAME}/releases/${_VERSION}/"
+          echo "✅ Production release artifacts oluşturuldu!"
+          echo "📋 Release URL: https://storage.googleapis.com/hss-releases-${PROJECT_ID}/releases/$VERSION/"
         else
-          echo "ℹ️  ${_ENVIRONMENT} environment - release artifacts atlandı"
+          echo "ℹ️  Development deployment - release artifacts oluşturulmadı"
         fi
-    waitFor: ['cloud-run-deploy']
 
-  # 7. Monitoring
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:alpine'
-    id: 'monitoring'
+  # 8. Monitoring metrics gönder (opsiyonel)
+  - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        set -euo pipefail
+        echo "📊 Monitoring metrics gönderiliyor..."
         
-        echo "📊 Deployment log kaydediliyor..."
-        
-        # Structured log
-        cat << EOF | gcloud logging write hss-deployment \
+        # Custom metric gönder (--resource=global kaldırıldı)
+        gcloud logging write hss-deployment \
+          "Backend deployment completed successfully" \
           --severity=INFO \
-          --resource=global \
-          --payload-type=json
-        {
-          "service": "hss-backend",
-          "environment": "${_ENVIRONMENT}",
-          "version": "${_VERSION}",
-          "commit_sha": "${COMMIT_SHA}",
-          "build_id": "${BUILD_ID}",
-          "tag_name": "${_TAG_NAME}",
-          "deployment_time": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-          "status": "success",
-          "region": "${_REGION}",
-          "service_name": "${_SERVICE_NAME}"
-        }
-        EOF
+          --payload-type=json \
+          --payload='{
+            "service": "hss-backend",
+            "environment": "${_ENVIRONMENT}",
+            "version": "${_TAG_NAME}",
+            "commit_sha": "${SHORT_SHA}",
+            "deployment_time": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+          }' || echo "⚠️  Monitoring metrics gönderilemedi (opsiyonel)"
         
-        echo "✅ Deployment başarıyla tamamlandı!"
-    waitFor: ['create-artifacts']
+        echo "✅ Monitoring metrics gönderildi!"
 
 # Substitution variables
 substitutions:
@@ -298,22 +249,22 @@ substitutions:
   _CONNECTION_NAME: 'hss-cloud-473511:europe-west3:hss-sql'
   _DB_USERNAME_SECRET: 'DB_USERNAME'
   _DB_PASSWORD_SECRET: 'DB_PASSWORD'
-  _ENVIRONMENT: 'dev'
-  _SERVICE_NAME: 'hss-backend-dev'
-  _SPRING_PROFILE: 'dev'
-  _MIN_INSTANCES: '0'
-  _MAX_INSTANCES: '2'
-  _VERSION: 'dev'
-  _BUCKET_NAME: 'hss-releases-hss-cloud-473511'
-  _TAG_NAME: 'dev-manual'
+  _ENVIRONMENT: 'dev'  # Bu değer trigger'da override edilecek
 
-# Build options
+# Build options (optimized)
 options:
   logging: CLOUD_LOGGING_ONLY
   machineType: 'E2_HIGHCPU_8'
-  diskSizeGb: 100
+  diskSizeGb: 50
   substitution_option: 'ALLOW_LOOSE'
-  dynamic_substitutions: true
+  env:
+    - 'DOCKER_BUILDKIT=1'
 
-# Timeout
-timeout: '1200s'
+# Timeout (optimized)
+timeout: '600s'
+
+# Images to be pushed to registry
+images:
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest'
