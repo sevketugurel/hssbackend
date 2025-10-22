@@ -1,5 +1,5 @@
 # Multi-stage build for HSS Backend
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM eclipse-temurin:21-jdk AS build
 
 # Set working directory
 WORKDIR /workspace/app
@@ -21,15 +21,14 @@ COPY src src
 # Build the application (skip tests for faster build)
 RUN ./mvnw clean package -DskipTests -T 1C
 
-# Runtime stage
-FROM eclipse-temurin:21-jre-alpine
+# Runtime stage - Use standard Ubuntu-based image for better native library support
+FROM eclipse-temurin:21-jre
 
 # Install necessary packages
-RUN apk add --no-cache curl
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Create app user
-RUN addgroup -g 1001 -S appgroup && \
-    adduser -u 1001 -S appuser -G appgroup
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 
 # Set working directory
 WORKDIR /app
@@ -51,4 +50,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8080}/actuator/health || exit 1
 
 # Run the application with proper JVM settings for Cloud Run
-ENTRYPOINT ["sh", "-c", "echo 'Starting HSS Backend Application...' && echo 'Port: ${PORT:-8080}' && echo 'Java version:' && java -version && echo 'Starting application...' && java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -Xmx512m -XX:+UseG1GC -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev} -jar app.jar"]
+# Added JVM flags to prevent native library issues
+ENTRYPOINT ["sh", "-c", "echo 'Starting HSS Backend Application...' && echo 'Port: ${PORT:-8080}' && echo 'Java version:' && java -version && echo 'Starting application...' && java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -Xmx512m -XX:+UseG1GC -XX:+UseStringDeduplication -XX:+OptimizeStringConcat -Djava.security.egd=file:/dev/./urandom -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev} -jar app.jar"]
