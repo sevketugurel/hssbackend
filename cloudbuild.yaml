@@ -113,7 +113,7 @@ steps:
           DB_NAME="hss_prod"
           echo "🏭 Production deployment konfigürasyonu"
         else
-          SERVICE_NAME="${_SERVICE_NAME}"
+          SERVICE_NAME="hss-backend-dev"
           SPRING_PROFILE="dev"
           MIN_INSTANCES="0"
           MAX_INSTANCES="3"
@@ -252,7 +252,6 @@ substitutions:
   _DB_PASSWORD_SECRET: 'DB_PASSWORD'
   _ENVIRONMENT: 'dev'  # Bu değer trigger'da override edilecek
   _TAG_NAME: 'dev'     # Default tag name
-  _SERVICE_NAME: 'hss-backend-dev'  # Default service name
 
 # Build options (optimized)
 options:
