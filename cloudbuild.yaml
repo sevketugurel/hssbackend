@@ -1,6 +1,7 @@
 # Cloud Build configuration for HSS Backend
 # Triggers: main branch (dev), v* tags (prod)
 
+
 steps:
   # 1. Test aşaması
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -87,7 +88,8 @@ steps:
         
         echo "✅ Cloud Run deploy başarılı: $SERVICE_NAME"
 
-  # 6. Release artifacts oluştur (sadece prod için)
+  # 6. Release artifacts oluştur (sadece prod için) 
+
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
