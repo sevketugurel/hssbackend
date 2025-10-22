@@ -53,6 +53,7 @@ steps:
         echo "🐳 Docker image build başlıyor..."
         echo "Environment: ${_ENVIRONMENT}"
         echo "Tag: ${_TAG_NAME}"
+        echo "Short SHA: ${SHORT_SHA}"
         
         # Cache from previous builds
         docker pull ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest || echo "No previous image found"
@@ -112,7 +113,7 @@ steps:
           DB_NAME="hss_prod"
           echo "🏭 Production deployment konfigürasyonu"
         else
-          SERVICE_NAME="hss-backend-dev"
+          SERVICE_NAME="${_SERVICE_NAME}"
           SPRING_PROFILE="dev"
           MIN_INSTANCES="0"
           MAX_INSTANCES="3"
@@ -250,6 +251,8 @@ substitutions:
   _DB_USERNAME_SECRET: 'DB_USERNAME'
   _DB_PASSWORD_SECRET: 'DB_PASSWORD'
   _ENVIRONMENT: 'dev'  # Bu değer trigger'da override edilecek
+  _TAG_NAME: 'dev'     # Default tag name
+  _SERVICE_NAME: 'hss-backend-dev'  # Default service name
 
 # Build options (optimized)
 options:
