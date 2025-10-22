@@ -1,7 +1,7 @@
 # Cloud Build configuration for HSS Backend (FULLY FIXED)
 # Triggers: develop branch (dev), v* tags (prod)
 # 
-# FIX: Tüm bash değişkenleri MY_ prefix'i ile başlıyor (Cloud Build built-in'lerle çakışmayı önler ve güvenli bir şekilde çalışır)
+# FIX: Tüm bash değişkenleri MY_ prefix'i ile başlıyor (Cloud Build built-in'lerle çakışmayı önler ve güvenli bir şekilde çalışır docker build ve push işlemlerinde)
 
 steps:
   # 1. Debug - Değişkenleri kontrol et
