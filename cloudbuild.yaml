@@ -56,11 +56,9 @@ steps:
         
         # Environment'a göre servis adı belirle
         if [ "${_ENVIRONMENT}" = "prod" ]; then
-          SPRING_PROFILE="prod"
           MIN_INSTANCES="1"
           MAX_INSTANCES="5"
         else
-          SPRING_PROFILE="dev"
           MIN_INSTANCES="0"
           MAX_INSTANCES="2"
         fi
@@ -72,7 +70,7 @@ steps:
           --service-account=${_SERVICE_ACCOUNT} \
           --platform=managed \
           --allow-unauthenticated \
-          --set-env-vars=SPRING_PROFILES_ACTIVE=$SPRING_PROFILE \
+          --set-env-vars=SPRING_PROFILES_ACTIVE=${_SPRING_PROFILE} \
           --set-env-vars=GCP_SQL_INSTANCE_CONNECTION_NAME=${_CONNECTION_NAME} \
           --set-secrets=DB_USERNAME=${_DB_USERNAME_SECRET}:latest,DB_PASSWORD=${_DB_PASSWORD_SECRET}:latest \
           --add-cloudsql-instances=${_CONNECTION_NAME} \
@@ -163,6 +161,7 @@ substitutions:
   _DB_PASSWORD_SECRET: 'DB_PASSWORD'
   _ENVIRONMENT: 'dev'  # Bu değer trigger'da override edilecek
   _SERVICE_NAME: 'hss-backend-dev'  # Bu değer trigger'da override edilecek
+  _SPRING_PROFILE: 'dev'  # Bu değer trigger'da override edilecek
 
 # Build options
 options:
