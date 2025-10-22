@@ -86,8 +86,8 @@ steps:
           echo "📦 Release artifacts oluşturuluyor..."
           
           # Release klasörü oluştur
-          VERSION=${_VERSION}
-          BUCKET=gs://hss-releases-${PROJECT_ID}
+          VERSION=${_VERSION_VAR}
+          BUCKET=gs://${_BUCKET_VAR}
           
           # Backend image referansı
           echo "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}" > backend-image.txt
@@ -99,7 +99,7 @@ steps:
           "changes": ["Backend production deployment"],
           "artifacts": {
             "backend": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}",
-            "frontend": "https://storage.googleapis.com/hss-releases-${PROJECT_ID}/releases/${_VERSION}/frontend/"
+            "frontend": "https://storage.googleapis.com/${_BUCKET}/releases/${_VERSION}/frontend/"
           },
           "forced": false,
           "channel": "prod",
@@ -157,6 +157,9 @@ substitutions:
   _MAX_INSTANCES: '2'  # Bu değer trigger'da override edilecek
   _VERSION: 'dev'  # Bu değer trigger'da override edilecek
   _TAG_NAME: 'dev'  # Bu değer trigger'da override edilecek
+  _BUCKET: 'hss-releases-hss-cloud-473511'  # Bu değer trigger'da override edilecek
+  _VERSION_VAR: 'dev'  # Shell variable için
+  _BUCKET_VAR: 'hss-releases-hss-cloud-473511'  # Shell variable için
 
 # Build options
 options:
