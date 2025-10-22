@@ -30,7 +30,7 @@ steps:
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest'
       - '.'
 
   # 4. Docker image push
@@ -42,7 +42,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest'
 
   # 5. Cloud Run deploy
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -121,17 +121,15 @@ steps:
         echo "📊 Monitoring metrics gönderiliyor..."
         
         # Custom metric gönder
-        gcloud logging write hss-deployment \
-          "Backend deployment completed successfully" \
+        echo '{
+          "service": "hss-backend",
+          "environment": "${_ENVIRONMENT}",
+          "version": "${_VERSION}",
+          "commit_sha": "${SHORT_SHA}",
+          "deployment_time": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
+        }' | gcloud logging write hss-deployment \
           --severity=INFO \
-          --payload-type=json \
-          --payload='{
-            "service": "hss-backend",
-            "environment": "${_ENVIRONMENT}",
-            "version": "${_VERSION}",
-            "commit_sha": "${SHORT_SHA}",
-            "deployment_time": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
-          }'
+          --resource=global
         
         echo "✅ Monitoring metrics gönderildi!"
 
@@ -164,4 +162,4 @@ timeout: '1200s'
 # Images to be pushed to registry
 images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest'
