@@ -31,7 +31,7 @@ steps:
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
       - 'hss-backend'
 
   # 4. Docker image push
@@ -43,7 +43,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
 
   # 5. Cloud Run deploy
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -97,7 +97,7 @@ steps:
           echo "📦 Release artifacts oluşturuluyor..."
           
           # Release klasörü oluştur
-          VERSION=${_TAG_NAME}
+          VERSION=${SHORT_SHA}
           BUCKET=gs://hss-releases-${PROJECT_ID}
           
           # Backend image referansı
@@ -106,11 +106,11 @@ steps:
           # Manifest oluştur
           cat > manifest.json << EOF
         {
-          "version": "$VERSION",
+            "version": "${SHORT_SHA}",
           "changes": ["Backend production deployment"],
           "artifacts": {
             "backend": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}",
-            "frontend": "https://storage.googleapis.com/hss-releases-${PROJECT_ID}/releases/$VERSION/frontend/"
+            "frontend": "https://storage.googleapis.com/hss-releases-${PROJECT_ID}/releases/${SHORT_SHA}/frontend/"
           },
           "forced": false,
           "channel": "prod",
@@ -119,8 +119,8 @@ steps:
         EOF
           
           # Cloud Storage'a yükle
-          gsutil -m cp backend-image.txt $BUCKET/releases/$VERSION/
-          gsutil -m cp manifest.json $BUCKET/releases/$VERSION/
+          gsutil -m cp backend-image.txt $BUCKET/releases/${SHORT_SHA}/
+          gsutil -m cp manifest.json $BUCKET/releases/${SHORT_SHA}/
           
           # Latest pointer'ını güncelle
           gsutil -m cp manifest.json $BUCKET/releases/latest/manifest.json
@@ -146,7 +146,7 @@ steps:
           --payload='{
             "service": "hss-backend",
             "environment": "${_ENVIRONMENT}",
-            "version": "${_TAG_NAME}",
+            "version": "${SHORT_SHA}",
             "commit_sha": "${SHORT_SHA}",
             "deployment_time": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
           }'
@@ -176,4 +176,4 @@ timeout: '1200s'
 # Images to be pushed to registry
 images:
   - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
+  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
