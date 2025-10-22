@@ -46,8 +46,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/public/**", "/actuator/health", "/actuator/info").permitAll()
                 // Swagger UI ve API dokümantasyonu için izin ver
                 .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**").permitAll()
-                .requestMatchers("/api/animals/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF", "RECEPTIONIST")
-                .requestMatchers("/api/appointments/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF", "RECEPTIONIST")
+                .requestMatchers("/api/animals/**").permitAll()
+                .requestMatchers("/api/appointments/**").permitAll()
                 .requestMatchers("/api/medical-history/**").hasAnyRole("ADMIN", "VETERINARIAN")
                 .requestMatchers("/api/lab-tests/**").hasAnyRole("ADMIN", "VETERINARIAN", "STAFF")
                 .requestMatchers("/api/prescriptions/**").hasAnyRole("ADMIN", "VETERINARIAN")

@@ -97,6 +97,24 @@ public class AppointmentController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/today")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('VETERINARIAN') or hasRole('STAFF') or hasRole('RECEPTIONIST')")
+    public ResponseEntity<List<AppointmentResponse>> getTodayAppointments() {
+        log.info("Fetching today's appointments");
+        List<AppointmentResponse> response = appointmentService.getTodayAppointments();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/calendar")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('VETERINARIAN') or hasRole('STAFF') or hasRole('RECEPTIONIST')")
+    public ResponseEntity<List<AppointmentResponse>> getCalendarAppointments(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endDate) {
+        log.info("Fetching calendar appointments between {} and {}", startDate, endDate);
+        List<AppointmentResponse> response = appointmentService.getAppointmentsByDateRange(startDate, endDate);
+        return ResponseEntity.ok(response);
+    }
+
     @PostMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('VETERINARIAN') or hasRole('STAFF') or hasRole('RECEPTIONIST')")
     public ResponseEntity<AppointmentResponse> createAppointment(@Valid @RequestBody AppointmentCreateRequest request) {

@@ -90,6 +90,15 @@ public class AppointmentService {
         return AppointmentMapper.toResponseList(appointments);
     }
 
+    @Transactional(readOnly = true)
+    public List<AppointmentResponse> getTodayAppointments() {
+        log.info("Fetching today's appointments");
+        LocalDateTime startOfDay = LocalDateTime.now().withHour(0).withMinute(0).withSecond(0).withNano(0);
+        LocalDateTime endOfDay = LocalDateTime.now().withHour(23).withMinute(59).withSecond(59).withNano(999999999);
+        List<Appointment> appointments = appointmentRepository.findByDateTimeBetween(startOfDay, endOfDay);
+        return AppointmentMapper.toResponseList(appointments);
+    }
+
     public AppointmentResponse createAppointment(AppointmentCreateRequest request) {
         log.info("Creating appointment for animal ID: {} at {}", request.getAnimalId(), request.getDateTime());
         
