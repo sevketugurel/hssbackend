@@ -2,6 +2,22 @@
 # Triggers: develop branch (dev), v* tags (prod)
 
 steps:
+  # 0. Java 21 setup
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "☕ Java 21 kurulumu..."
+        cd hss-backend
+        # Java 21'i indir ve kur
+        wget -q https://download.java.net/java/GA/jdk21.0.2/f2283986f49a4c0e92e48e9da5bd7e33/9/GPL/openjdk-21.0.2_linux-x64_bin.tar.gz
+        tar -xzf openjdk-21.0.2_linux-x64_bin.tar.gz
+        export JAVA_HOME=$(pwd)/jdk-21.0.2
+        export PATH=$JAVA_HOME/bin:$PATH
+        java -version
+        echo "✅ Java 21 kuruldu!"
+
   # 1. Test aşaması
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
@@ -10,6 +26,8 @@ steps:
       - |
         echo "🧪 Backend testleri çalıştırılıyor..."
         cd hss-backend
+        export JAVA_HOME=$(pwd)/jdk-21.0.2
+        export PATH=$JAVA_HOME/bin:$PATH
         ./mvnw -B test
         echo "✅ Testler başarılı!"
 
@@ -21,6 +39,8 @@ steps:
       - |
         echo "🔨 Backend build ediliyor..."
         cd hss-backend
+        export JAVA_HOME=$(pwd)/jdk-21.0.2
+        export PATH=$JAVA_HOME/bin:$PATH
         ./mvnw -B clean package -DskipTests
         echo "✅ Build başarılı!"
 
@@ -32,7 +52,8 @@ steps:
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
-      - 'hss-backend'
+      - '.'
+    dir: 'hss-backend'
 
   # 4. Docker image push
   - name: 'gcr.io/cloud-builders/docker'
