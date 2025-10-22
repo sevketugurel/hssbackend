@@ -1,5 +1,5 @@
 # Multi-stage build for HSS Backend
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM eclipse-temurin:17-jdk-alpine AS build
 
 # Set working directory
 WORKDIR /workspace/app
@@ -22,7 +22,7 @@ COPY src src
 RUN ./mvnw clean package -DskipTests
 
 # Runtime stage
-FROM eclipse-temurin:21-jre-alpine
+FROM eclipse-temurin:17-jre-alpine
 
 # Install necessary packages
 RUN apk add --no-cache curl

@@ -28,21 +28,21 @@ steps:
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA}'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:latest'
       - '.'
 
   # 4. Docker image push
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA}'
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:latest'
 
   # 5. Cloud Run deploy
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -54,7 +54,7 @@ steps:
         
         # Cloud Run deploy
         gcloud run deploy ${_SERVICE_NAME} \
-          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA} \
+          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA} \
           --region=${_REGION} \
           --service-account=${_SERVICE_ACCOUNT} \
           --platform=managed \
@@ -83,7 +83,7 @@ steps:
           echo "📦 Release artifacts oluşturuluyor..."
           
           # Backend image referansı
-          echo "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}" > backend-image.txt
+          echo "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA}" > backend-image.txt
           
           # Manifest oluştur
           cat > manifest.json << EOF
@@ -91,7 +91,7 @@ steps:
           "version": "${_VERSION}",
           "changes": ["Backend production deployment"],
           "artifacts": {
-            "backend": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}",
+            "backend": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA}",
             "frontend": "https://storage.googleapis.com/${_BUCKET_NAME}/releases/${_VERSION}/frontend/"
           },
           "forced": false,
@@ -148,6 +148,7 @@ substitutions:
   _MAX_INSTANCES: '2'
   _VERSION: 'dev'
   _BUCKET_NAME: 'hss-releases-hss-cloud-473511'
+  _TAG_NAME: 'latest'
 
 # Build options
 options:
@@ -159,7 +160,4 @@ options:
 # Timeout
 timeout: '1200s'
 
-# Images to be pushed to registry
-images:
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}'
-  - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:latest'
+# Images to be pushed to registry (automatically detected from build steps)
