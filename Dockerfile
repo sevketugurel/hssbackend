@@ -51,4 +51,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:${PORT:-8080}/actuator/health || exit 1
 
 # Run the application with proper JVM settings for Cloud Run
-ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -Xmx512m -XX:+UseG1GC -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "echo 'Starting HSS Backend Application...' && echo 'Port: ${PORT:-8080}' && echo 'Java version:' && java -version && echo 'Starting application...' && java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -Xmx512m -XX:+UseG1GC -Dspring.profiles.active=${SPRING_PROFILES_ACTIVE:-dev} -jar app.jar"]

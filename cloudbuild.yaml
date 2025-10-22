@@ -138,6 +138,8 @@ steps:
           --allow-unauthenticated \
           --set-env-vars="SPRING_PROFILES_ACTIVE=${_SPRING_PROFILE},DEPLOYMENT_VERSION=${_VERSION},BUILD_ID=${BUILD_ID}" \
           --set-env-vars="GCP_SQL_INSTANCE_CONNECTION_NAME=${_CONNECTION_NAME}" \
+          --set-env-vars="DB_NAME=hss_dev" \
+          --set-env-vars="JAVA_OPTS=-Xmx512m -XX:+UseG1GC -Dspring.profiles.active=${_SPRING_PROFILE}" \
           --set-secrets="DB_USERNAME=${_DB_USERNAME_SECRET}:latest,DB_PASSWORD=${_DB_PASSWORD_SECRET}:latest" \
           --add-cloudsql-instances=${_CONNECTION_NAME} \
           --min-instances=${_MIN_INSTANCES} \
@@ -149,6 +151,7 @@ steps:
           --concurrency=80 \
           --no-cpu-throttling \
           --cpu-boost \
+          --execution-environment=gen2 \
           --quiet
         
         # Service URL'i al
@@ -165,8 +168,8 @@ steps:
         echo "Health check endpoint: $$MY_SVC_URL/actuator/health"
         
         # Service'in tamamen hazır olması için daha uzun bekle
-        echo "⏳ Service'in başlamasını bekliyoruz (60 saniye)..."
-        sleep 60
+        echo "⏳ Service'in başlamasını bekliyoruz (120 saniye)..."
+        sleep 120
         
         # Health check'i birkaç kez dene
         for i in {1..5}; do
@@ -190,6 +193,10 @@ steps:
           echo "⚠️  Health check başarısız oldu, ancak deploy tamamlandı"
           echo "Manuel kontrol edin: $$MY_SVC_URL/actuator/health"
           echo "Cloud Run logs: https://console.cloud.google.com/run/detail/${_REGION}/${_SERVICE_NAME}/logs"
+          
+          # Container logs'unu al
+          echo "📋 Container logs'unu alıyoruz..."
+          gcloud run services logs read ${_SERVICE_NAME} --region=${_REGION} --limit=50 --format="value(textPayload)" || echo "Logs alınamadı"
         fi
     waitFor: ['docker-push']
 
