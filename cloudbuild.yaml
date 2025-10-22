@@ -1,5 +1,10 @@
-# Cloud Build configuration for HSS Backend (FIXED)
+# Cloud Build configuration for HSS Backend (SECURE)
 # Triggers: develop branch (dev), v* tags (prod)
+# 
+# SECURITY NOTES:
+# - All custom variables use underscore prefix (_) to avoid built-in substitution conflicts
+# - Variable names avoid Cloud Build reserved words (DIGEST, TAG_NAME, IMAGE_NAME, etc.)
+# - Safe variable names: DOCKER_IMAGE, IMAGE_TAG, IMAGE_SHA, etc.
 
 steps:
   # 1. Debug - Değişkenleri kontrol et
@@ -48,16 +53,16 @@ steps:
         set -e
         
         # Image adını oluştur
-        IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
-        TAG_NAME="${_TAG_NAME}"
+        DOCKER_IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
+        IMAGE_TAG="${_TAG_NAME}"
         
         echo "🐳 Docker image build başlıyor..."
-        echo "Image: $${IMAGE_NAME}:$${TAG_NAME}"
+        echo "Image: $${DOCKER_IMAGE}:$${IMAGE_TAG}"
         
         # Build
         docker build \
-          --tag "$${IMAGE_NAME}:$${TAG_NAME}" \
-          --tag "$${IMAGE_NAME}:latest" \
+          --tag "$${DOCKER_IMAGE}:$${IMAGE_TAG}" \
+          --tag "$${DOCKER_IMAGE}:latest" \
           --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
           --build-arg VCS_REF=${COMMIT_SHA} \
           .
@@ -65,7 +70,7 @@ steps:
         echo "✅ Docker build başarılı!"
         
         # Image'i kontrol et
-        docker images "$${IMAGE_NAME}"
+        docker images "$${DOCKER_IMAGE}"
     waitFor: ['test-and-build']
 
   # 4. Docker image push (Tek komutla, doğru sırayla)
@@ -77,26 +82,26 @@ steps:
       - |
         set -euo pipefail
         
-        IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
-        TAG_NAME="${_TAG_NAME}"
+        DOCKER_IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
+        IMAGE_TAG="${_TAG_NAME}"
         
         echo "📤 Docker image push başlıyor..."
-        echo "Target: $${IMAGE_NAME}:$${TAG_NAME}"
+        echo "Target: $${DOCKER_IMAGE}:$${IMAGE_TAG}"
         
         # Tag'li versiyonu push et
         echo "Pushing tagged version..."
-        docker push "$${IMAGE_NAME}:$${TAG_NAME}"
+        docker push "$${DOCKER_IMAGE}:$${IMAGE_TAG}"
         
         # Latest'i push et
         echo "Pushing latest..."
-        docker push "$${IMAGE_NAME}:latest"
+        docker push "$${DOCKER_IMAGE}:latest"
         
         echo "✅ Docker push başarılı!"
         
         # Digest'i al ve kaydet
-        CONTAINER_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$${IMAGE_NAME}:$${TAG_NAME}" | cut -d'@' -f2)
-        echo "Image Digest: $CONTAINER_DIGEST"
-        echo "$CONTAINER_DIGEST" > /workspace/image-digest.txt
+        IMAGE_SHA=$(docker inspect --format='{{index .RepoDigests 0}}' "$${DOCKER_IMAGE}:$${IMAGE_TAG}" | cut -d'@' -f2)
+        echo "Image Digest: $IMAGE_SHA"
+        echo "$IMAGE_SHA" > /workspace/image-digest.txt
     waitFor: ['docker-build']
 
   # 5. Cloud Run deploy
@@ -108,10 +113,10 @@ steps:
       - |
         set -euo pipefail
         
-        IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
+        DOCKER_IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
         
         echo "🚀 Cloud Run deploy başlıyor..."
-        echo "Image: $IMAGE_NAME"
+        echo "Image: $DOCKER_IMAGE"
         echo "Service: ${_SERVICE_NAME}"
         echo "Region: ${_REGION}"
         
@@ -124,7 +129,7 @@ steps:
         
         # Deploy
         gcloud run deploy ${_SERVICE_NAME} \
-          --image="$IMAGE_NAME" \
+          --image="$DOCKER_IMAGE" \
           --region=${_REGION} \
           --service-account=${_SERVICE_ACCOUNT} \
           --platform=managed \
@@ -174,17 +179,17 @@ steps:
         if [ "${_ENVIRONMENT}" = "prod" ]; then
           echo "📦 Release artifacts oluşturuluyor..."
           
-          IMAGE_NAME="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
+          DOCKER_IMAGE="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
           
           # Image digest'i al
           if [ -f /workspace/image-digest.txt ]; then
-            CONTAINER_DIGEST=$(cat /workspace/image-digest.txt)
+            IMAGE_SHA=$(cat /workspace/image-digest.txt)
           else
-            CONTAINER_DIGEST="unknown"
+            IMAGE_SHA="unknown"
           fi
           
           # Backend image referansı
-          echo "$IMAGE_NAME" > backend-image.txt
+          echo "$DOCKER_IMAGE" > backend-image.txt
           
           # Manifest oluştur
           cat > manifest.json << EOF
@@ -196,9 +201,9 @@ steps:
           "changes": ["Backend ${_ENVIRONMENT} deployment"],
           "artifacts": {
             "backend": {
-              "image": "$IMAGE_NAME",
+              "image": "$DOCKER_IMAGE",
               "tag": "${_TAG_NAME}",
-              "digest": "$CONTAINER_DIGEST"
+              "digest": "$IMAGE_SHA"
             }
           },
           "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
