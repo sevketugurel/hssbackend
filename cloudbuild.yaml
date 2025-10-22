@@ -94,9 +94,9 @@ steps:
         echo "✅ Docker push başarılı!"
         
         # Digest'i al ve kaydet
-        DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$${IMAGE_NAME}:$${TAG_NAME}" | cut -d'@' -f2)
-        echo "Image Digest: $DIGEST"
-        echo "$DIGEST" > /workspace/image-digest.txt
+        CONTAINER_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$${IMAGE_NAME}:$${TAG_NAME}" | cut -d'@' -f2)
+        echo "Image Digest: $CONTAINER_DIGEST"
+        echo "$CONTAINER_DIGEST" > /workspace/image-digest.txt
     waitFor: ['docker-build']
 
   # 5. Cloud Run deploy
@@ -178,9 +178,9 @@ steps:
           
           # Image digest'i al
           if [ -f /workspace/image-digest.txt ]; then
-            IMAGE_DIGEST=$(cat /workspace/image-digest.txt)
+            CONTAINER_DIGEST=$(cat /workspace/image-digest.txt)
           else
-            IMAGE_DIGEST="unknown"
+            CONTAINER_DIGEST="unknown"
           fi
           
           # Backend image referansı
@@ -198,7 +198,7 @@ steps:
             "backend": {
               "image": "$IMAGE_NAME",
               "tag": "${_TAG_NAME}",
-              "digest": "$IMAGE_DIGEST"
+              "digest": "$CONTAINER_DIGEST"
             }
           },
           "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
