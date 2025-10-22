@@ -18,8 +18,8 @@ RUN ./mvnw dependency:go-offline -B
 # Copy source code
 COPY src src
 
-# Build the application
-RUN ./mvnw clean package -DskipTests
+# Build the application (skip tests for faster build)
+RUN ./mvnw clean package -DskipTests -T 1C
 
 # Runtime stage
 FROM eclipse-temurin:21-jre-alpine

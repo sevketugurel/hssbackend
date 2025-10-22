@@ -2,33 +2,46 @@
 # Triggers: develop branch (dev), v* tags (prod)
 
 steps:
-  # 1. Test aşaması
+  # 1. Java kurulumu ve Maven dependency cache
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        echo "🧪 Backend testleri çalıştırılıyor..."
-        java -version
-        ./mvnw -B test
-        echo "✅ Testler başarılı!"
+        echo "☕ Java 21 kurulumu ve Maven cache..."
+        
+        # Java 21 kurulumu
+        apt-get update && apt-get install -y openjdk-21-jdk
+        export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        
+        # Maven dependency'lerini cache'le
+        ./mvnw dependency:go-offline -B
+        
+        echo "✅ Java kurulumu ve Maven cache tamamlandı!"
 
-  # 2. Build aşaması
+  # 2. Test ve Build (tek step'te)
   - name: 'gcr.io/cloud-builders/gcloud'
     entrypoint: 'bash'
     args:
       - '-c'
       - |
-        echo "🔨 Backend build ediliyor..."
-        ./mvnw -B clean package -DskipTests
-        echo "✅ Build başarılı!"
+        echo "🧪 Test ve build çalıştırılıyor..."
+        
+        # Java environment
+        export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+        export PATH=$JAVA_HOME/bin:$PATH
+        
+        # Test ve build
+        ./mvnw -B clean package
+        echo "✅ Test ve build başarılı!"
 
   # 3. Docker image build
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'build'
       - '-t'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${_TAG_NAME}'
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:latest'
       - '.'
@@ -37,7 +50,7 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args:
       - 'push'
-      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA}'
+      - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${_TAG_NAME}'
 
   - name: 'gcr.io/cloud-builders/docker'
     args:
@@ -54,7 +67,7 @@ steps:
         
         # Cloud Run deploy
         gcloud run deploy ${_SERVICE_NAME} \
-          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA} \
+          --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${_TAG_NAME} \
           --region=${_REGION} \
           --service-account=${_SERVICE_ACCOUNT} \
           --platform=managed \
@@ -83,7 +96,7 @@ steps:
           echo "📦 Release artifacts oluşturuluyor..."
           
           # Backend image referansı
-          echo "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA}" > backend-image.txt
+          echo "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${_TAG_NAME}" > backend-image.txt
           
           # Manifest oluştur
           cat > manifest.json << EOF
@@ -91,7 +104,7 @@ steps:
           "version": "${_VERSION}",
           "changes": ["Backend production deployment"],
           "artifacts": {
-            "backend": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${SHORT_SHA}",
+            "backend": "${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}:${_TAG_NAME}",
             "frontend": "https://storage.googleapis.com/${_BUCKET_NAME}/releases/${_VERSION}/frontend/"
           },
           "forced": false,
@@ -125,7 +138,7 @@ steps:
           "service": "hss-backend",
           "environment": "${_ENVIRONMENT}",
           "version": "${_VERSION}",
-          "commit_sha": "${SHORT_SHA}",
+          "commit_sha": "${_TAG_NAME}",
           "deployment_time": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"
         }' | gcloud logging write hss-deployment \
           --severity=INFO \
@@ -148,7 +161,7 @@ substitutions:
   _MAX_INSTANCES: '2'
   _VERSION: 'dev'
   _BUCKET_NAME: 'hss-releases-hss-cloud-473511'
-  _TAG_NAME: 'latest'
+  _TAG_NAME: 'dev-${SHORT_SHA}'
 
 # Build options
 options:
