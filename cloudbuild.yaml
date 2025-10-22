@@ -102,7 +102,6 @@ steps:
         
         # Environment'a göre konfigürasyon belirle
         if [ "${_ENVIRONMENT}" = "prod" ]; then
-          SERVICE_NAME="hss-backend"
           SPRING_PROFILE="prod"
           MIN_INSTANCES="1"
           MAX_INSTANCES="10"
@@ -113,7 +112,6 @@ steps:
           DB_NAME="hss_prod"
           echo "🏭 Production deployment konfigürasyonu"
         else
-          SERVICE_NAME="hss-backend-dev"
           SPRING_PROFILE="dev"
           MIN_INSTANCES="0"
           MAX_INSTANCES="3"
@@ -123,6 +121,13 @@ steps:
           CONCURRENCY="80"
           DB_NAME="hss_dev"
           echo "🧪 Development deployment konfigürasyonu"
+        fi
+        
+        # Service name'i environment'a göre ayarla
+        if [ "${_ENVIRONMENT}" = "prod" ]; then
+          SERVICE_NAME="hss-backend"
+        else
+          SERVICE_NAME="hss-backend-dev"
         fi
         
         # Cloud Run deploy
