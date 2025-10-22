@@ -1,12 +1,7 @@
-# Cloud Build configuration for HSS Backend (SECURE)
+# Cloud Build configuration for HSS Backend (FULLY FIXED)
 # Triggers: develop branch (dev), v* tags (prod)
 # 
-# SECURITY NOTES:
-# - All custom variables use underscore prefix (_) to avoid built-in substitution conflicts
-# - Variable names avoid Cloud Build reserved words (DIGEST, TAG_NAME, IMAGE_NAME, IMAGE_SHA, CONTAINER_HASH, etc.)
-# - Ultra-safe variable names: FULL_IMAGE_PATH, VERSION_TAG, REPO_DIGEST, etc.
-# - All variables use descriptive prefixes to avoid ANY built-in conflicts
-# - This configuration is 100% safe from Cloud Build built-in substitution conflicts
+# FIX: Tüm bash değişkenleri MY_ prefix'i ile başlıyor (Cloud Build built-in'lerle çakışmayı önler)
 
 steps:
   # 1. Debug - Değişkenleri kontrol et
@@ -45,7 +40,7 @@ steps:
         echo "✅ Build başarılı!"
     waitFor: ['debug-variables']
 
-  # 3. Docker image build (Doğru image adı ile)
+  # 3. Docker image build
   - name: 'gcr.io/cloud-builders/docker'
     id: 'docker-build'
     entrypoint: 'bash'
@@ -54,28 +49,26 @@ steps:
       - |
         set -e
         
-        # Image adını oluştur
-        FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
-        VERSION_TAG="${_TAG_NAME}"
+        # MY_ prefix kullanarak Cloud Build built-in'lerle çakışmayı önle
+        MY_IMG_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
+        MY_VER="${_TAG_NAME}"
         
         echo "🐳 Docker image build başlıyor..."
-        echo "Image: $${FULL_IMAGE_PATH}:$${VERSION_TAG}"
+        echo "Image: $${MY_IMG_PATH}:$${MY_VER}"
         
         # Build
         docker build \
-          --tag "$${FULL_IMAGE_PATH}:$${VERSION_TAG}" \
-          --tag "$${FULL_IMAGE_PATH}:latest" \
+          --tag "$${MY_IMG_PATH}:$${MY_VER}" \
+          --tag "$${MY_IMG_PATH}:latest" \
           --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") \
           --build-arg VCS_REF=${COMMIT_SHA} \
           .
         
         echo "✅ Docker build başarılı!"
-        
-        # Image'i kontrol et
-        docker images "$${FULL_IMAGE_PATH}"
+        docker images "$${MY_IMG_PATH}"
     waitFor: ['test-and-build']
 
-  # 4. Docker image push (Tek komutla, doğru sırayla)
+  # 4. Docker image push
   - name: 'gcr.io/cloud-builders/docker'
     id: 'docker-push'
     entrypoint: 'bash'
@@ -84,26 +77,26 @@ steps:
       - |
         set -euo pipefail
         
-        FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
-        VERSION_TAG="${_TAG_NAME}"
+        MY_IMG_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend"
+        MY_VER="${_TAG_NAME}"
         
         echo "📤 Docker image push başlıyor..."
-        echo "Target: $${FULL_IMAGE_PATH}:$${VERSION_TAG}"
+        echo "Target: $${MY_IMG_PATH}:$${MY_VER}"
         
         # Tag'li versiyonu push et
         echo "Pushing tagged version..."
-        docker push "$${FULL_IMAGE_PATH}:$${VERSION_TAG}"
+        docker push "$${MY_IMG_PATH}:$${MY_VER}"
         
         # Latest'i push et
         echo "Pushing latest..."
-        docker push "$${FULL_IMAGE_PATH}:latest"
+        docker push "$${MY_IMG_PATH}:latest"
         
         echo "✅ Docker push başarılı!"
         
         # Digest'i al ve kaydet
-        REPO_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$${FULL_IMAGE_PATH}:$${VERSION_TAG}" | cut -d'@' -f2)
-        echo "Image Digest: $REPO_DIGEST"
-        echo "$REPO_DIGEST" > /workspace/image-digest.txt
+        MY_DIG=$$(docker inspect --format='{{index .RepoDigests 0}}' "$${MY_IMG_PATH}:$${MY_VER}" | cut -d'@' -f2)
+        echo "Image Digest: $$MY_DIG"
+        echo "$$MY_DIG" > /workspace/image-digest.txt
     waitFor: ['docker-build']
 
   # 5. Cloud Run deploy
@@ -115,23 +108,23 @@ steps:
       - |
         set -euo pipefail
         
-        FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
+        MY_IMG_FULL="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
         
         echo "🚀 Cloud Run deploy başlıyor..."
-        echo "Image: $FULL_IMAGE_PATH"
+        echo "Image: $$MY_IMG_FULL"
         echo "Service: ${_SERVICE_NAME}"
         echo "Region: ${_REGION}"
         
         # Mevcut revision'ı kaydet (rollback için)
-        CURRENT_REVISION=$(gcloud run services describe ${_SERVICE_NAME} \
+        MY_CURR_REV=$$(gcloud run services describe ${_SERVICE_NAME} \
           --region=${_REGION} \
           --format='value(status.latestReadyRevisionName)' 2>/dev/null || echo "none")
         
-        echo "📝 Mevcut revision: $CURRENT_REVISION"
+        echo "📝 Mevcut revision: $$MY_CURR_REV"
         
         # Deploy
         gcloud run deploy ${_SERVICE_NAME} \
-          --image="$FULL_IMAGE_PATH" \
+          --image="$$MY_IMG_FULL" \
           --region=${_REGION} \
           --service-account=${_SERVICE_ACCOUNT} \
           --platform=managed \
@@ -150,22 +143,22 @@ steps:
           --quiet
         
         # Service URL'i al
-        SERVICE_URL=$(gcloud run services describe ${_SERVICE_NAME} \
+        MY_SVC_URL=$$(gcloud run services describe ${_SERVICE_NAME} \
           --region=${_REGION} \
           --format='value(status.url)')
         
         echo "✅ Deploy başarılı!"
-        echo "🌐 Service URL: $SERVICE_URL"
+        echo "🌐 Service URL: $$MY_SVC_URL"
         
         # Basit health check
         echo "🔍 Health check yapılıyor..."
         sleep 10  # Service'in hazır olması için bekle
         
-        if curl -sf -m 30 "$SERVICE_URL/actuator/health" > /dev/null 2>&1; then
+        if curl -sf -m 30 "$$MY_SVC_URL/actuator/health" > /dev/null 2>&1; then
           echo "✅ Health check başarılı!"
         else
           echo "⚠️  Health check başarısız oldu, ancak deploy tamamlandı"
-          echo "Manuel kontrol edin: $SERVICE_URL/actuator/health"
+          echo "Manuel kontrol edin: $$MY_SVC_URL/actuator/health"
         fi
     waitFor: ['docker-push']
 
@@ -181,17 +174,17 @@ steps:
         if [ "${_ENVIRONMENT}" = "prod" ]; then
           echo "📦 Release artifacts oluşturuluyor..."
           
-          FULL_IMAGE_PATH="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
+          MY_IMG_FULL="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}"
           
           # Image digest'i al
           if [ -f /workspace/image-digest.txt ]; then
-            REPO_DIGEST=$(cat /workspace/image-digest.txt)
+            MY_DIG=$$(cat /workspace/image-digest.txt)
           else
-            REPO_DIGEST="unknown"
+            MY_DIG="unknown"
           fi
           
           # Backend image referansı
-          echo "$FULL_IMAGE_PATH" > backend-image.txt
+          echo "$$MY_IMG_FULL" > backend-image.txt
           
           # Manifest oluştur
           cat > manifest.json << EOF
@@ -203,9 +196,9 @@ steps:
           "changes": ["Backend ${_ENVIRONMENT} deployment"],
           "artifacts": {
             "backend": {
-              "image": "$FULL_IMAGE_PATH",
+              "image": "$$MY_IMG_FULL",
               "tag": "${_TAG_NAME}",
-              "digest": "$REPO_DIGEST"
+              "digest": "$$MY_DIG"
             }
           },
           "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
@@ -262,7 +255,7 @@ steps:
 # Substitution variables
 substitutions:
   _REGION: 'europe-west3'
-  _REPO_NAME: 'hss-backend'  # ⚠️ KONTROL ET: Artifact Registry'deki repository adı
+  _REPO_NAME: 'hss-backend'
   _SERVICE_ACCOUNT: 'hss-backend-sa@hss-cloud-473511.iam.gserviceaccount.com'
   _CONNECTION_NAME: 'hss-cloud-473511:europe-west3:hss-sql'
   _DB_USERNAME_SECRET: 'DB_USERNAME'
