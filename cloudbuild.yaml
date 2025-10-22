@@ -9,7 +9,6 @@ steps:
       - '-c'
       - |
         echo "🧪 Backend testleri çalıştırılıyor..."
-        cd hss-backend
         java -version
         ./mvnw -B test
         echo "✅ Testler başarılı!"
@@ -21,7 +20,6 @@ steps:
       - '-c'
       - |
         echo "🔨 Backend build ediliyor..."
-        cd hss-backend
         ./mvnw -B clean package -DskipTests
         echo "✅ Build başarılı!"
 
@@ -34,7 +32,6 @@ steps:
       - '-t'
       - '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${_TAG_NAME}'
       - '.'
-    dir: 'hss-backend'
 
   # 4. Docker image push
   - name: 'gcr.io/cloud-builders/docker'
