@@ -341,14 +341,7 @@ steps:
           MY_VERSION="${_TAG_NAME}"
           MY_BUCKET="gs://hss-releases-${PROJECT_ID}"
           
-          cat > manifest.json << EOF
-{
-  "version": "${MY_VERSION}",
-  "environment": "production",
-  "image": "${MY_IMG_PATH}",
-  "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-}
-EOF
+          echo "{\"version\":\"${MY_VERSION}\",\"environment\":\"production\",\"image\":\"${MY_IMG_PATH}\",\"deployed_at\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}" > manifest.json
           gsutil -m cp manifest.json "${MY_BUCKET}/releases/${MY_VERSION}/"
           gsutil -m cp manifest.json "${MY_BUCKET}/releases/latest/manifest.json"
           echo "✅ Release artifacts yüklendi!"
