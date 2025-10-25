@@ -106,25 +106,25 @@ steps:
         echo "✅ Build başarılı - jar üretildi"
         
         # --- START: Ensure Spring Boot reads Cloud Run's PORT and binds correctly ---
-        APPLICATION_PROPERTIES_FILE="src/main/resources/application.properties"
-        mkdir -p "$(dirname "$APPLICATION_PROPERTIES_FILE")"
+        APP_PROPS_FILE="src/main/resources/application.properties"
+        mkdir -p "$(dirname "$APP_PROPS_FILE")"
         echo "🔧 application.properties kontrol ediliyor..."
         
         # Eğer dosya yoksa oluştur; varsa var olan server.port/server.address lines'larını güncelle
-        if [ -f "$APPLICATION_PROPERTIES_FILE" ]; then
+        if [ -f "$APP_PROPS_FILE" ]; then
           # Remove existing server.port/server.address lines to avoid duplicates
-          sed -i.bak -E '/^server\.port=|^server\.address=|^management\.endpoints\.web\.exposure\.include=|^management\.endpoint\.health\.show-details=/d' "$APPLICATION_PROPERTIES_FILE" || true
+          sed -i.bak -E '/^server\.port=|^server\.address=|^management\.endpoints\.web\.exposure\.include=|^management\.endpoint\.health\.show-details=/d' "$APP_PROPS_FILE" || true
         else
-          echo "# created by cloudbuild patch" > "$APPLICATION_PROPERTIES_FILE"
+          echo "# created by cloudbuild patch" > "$APP_PROPS_FILE"
         fi
         
         # Cloud Run friendly settings'i application.properties'e ekle
-        echo "server.port=\${PORT:8080}" >> "$APPLICATION_PROPERTIES_FILE"
-        echo "server.address=0.0.0.0" >> "$APPLICATION_PROPERTIES_FILE"
-        echo "" >> "$APPLICATION_PROPERTIES_FILE"
-        echo "# Expose Actuator basic endpoints for health checks" >> "$APPLICATION_PROPERTIES_FILE"
-        echo "management.endpoints.web.exposure.include=health,info" >> "$APPLICATION_PROPERTIES_FILE"
-        echo "management.endpoint.health.show-details=always" >> "$APPLICATION_PROPERTIES_FILE"
+        echo "server.port=\${PORT:8080}" >> "$APP_PROPS_FILE"
+        echo "server.address=0.0.0.0" >> "$APP_PROPS_FILE"
+        echo "" >> "$APP_PROPS_FILE"
+        echo "# Expose Actuator basic endpoints for health checks" >> "$APP_PROPS_FILE"
+        echo "management.endpoints.web.exposure.include=health,info" >> "$APP_PROPS_FILE"
+        echo "management.endpoint.health.show-details=always" >> "$APP_PROPS_FILE"
         
         echo "✅ application.properties güncellendi (server.port ve server.address ayarlandı)."
         # --- END patch ---
