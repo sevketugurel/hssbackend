@@ -195,6 +195,16 @@ steps:
           MY_DB="hss_dev"
         fi
 
+        # Servisin mevcut olup olmadığını kontrol et
+        echo "🔍 Servis durumu kontrol ediliyor: $${MY_SERVICE_NAME}"
+        if gcloud run services describe "$${MY_SERVICE_NAME}" --region="${_REGION}" --quiet >/dev/null 2>&1; then
+          echo "✅ Servis mevcut, güncelleniyor..."
+          MY_NO_TRAFFIC_FLAG="--no-traffic"
+        else
+          echo "🆕 Servis mevcut değil, oluşturuluyor..."
+          MY_NO_TRAFFIC_FLAG=""
+        fi
+
         gcloud run deploy "$${MY_SERVICE_NAME}" \
           --image="${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_REPO_NAME}/hss-backend:${SHORT_SHA}" \
           --region="${_REGION}" \
@@ -212,7 +222,7 @@ steps:
           --timeout="$${MY_TIMEOUT}" \
           --concurrency="$${MY_CONCURRENCY}" \
           --port=8080 \
-          --no-traffic \
+          $${MY_NO_TRAFFIC_FLAG} \
           --quiet
 
         MY_URL=$(gcloud run services describe "$${MY_SERVICE_NAME}" --region=${_REGION} --format='value(status.url)')
