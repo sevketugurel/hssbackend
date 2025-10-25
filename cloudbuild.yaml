@@ -196,7 +196,7 @@ steps:
         else
           echo "ℹ️ Dev ortamı - migration atlandı"
         fi
-    waitFor: ['migrate']
+    waitFor: ['docker-push']
 
   # 7. Cloud Run deploy
   - name: 'gcr.io/cloud-builders/gcloud'
@@ -289,6 +289,7 @@ steps:
             sleep 10
           fi
         done
+    waitFor: ['migrate']
 
   # 7. Release artifacts (only prod)
   - name: 'gcr.io/cloud-builders/gcloud'
