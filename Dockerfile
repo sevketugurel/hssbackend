@@ -46,9 +46,9 @@ USER appuser
 # Expose port (Cloud Run will set PORT environment variable)
 EXPOSE 8080
 
-# Health check (use PORT environment variable)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+# Health check (use PORT environment variable) - daha uzun timeout
+HEALTHCHECK --interval=30s --timeout=30s --start-period=120s --retries=5 \
     CMD curl -f http://localhost:${PORT:-8080}/actuator/health || exit 1
 
 # Run the application with proper JVM settings for Cloud Run
-ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -Xmx512m -XX:+UseG1GC -jar app.jar"]
+ENTRYPOINT ["sh", "-c", "java -Dserver.port=${PORT:-8080} -Dserver.address=0.0.0.0 -Xmx1024m -XX:+UseG1GC -XX:+UseContainerSupport -jar app.jar"]

@@ -57,8 +57,10 @@ server:
   servlet:
     context-path: /
   address: 0.0.0.0
-  # Startup timeout artırıldı
-  startup-timeout: 300000  # 5 dakika
+  # Startup timeout artırıldı - Cloud Run için daha uzun
+  startup-timeout: 600000  # 10 dakika
+  # Shutdown timeout da artırıldı
+  shutdown-timeout: 30000  # 30 saniye
 
 # Management Configuration for Production
 management:
