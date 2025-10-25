@@ -161,7 +161,44 @@ steps:
         echo "✅ Docker push tamamlandı!"
     waitFor: ['docker-build']
 
-  # 6. Cloud Run deploy
+  # 6. Database Migration (sadece prod için)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'migrate'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ "${_ENVIRONMENT}" = "prod" ]; then
+          echo "🗄️ Production database migration başlıyor..."
+          echo "Mevcut dizin: $(pwd)"
+          
+          # Root dizinden hss-backend'e geç veya mevcut dizinde kal
+          if [ -d "hss-backend" ]; then
+            cd hss-backend
+            echo "hss-backend dizinine geçildi"
+          elif [ -f "pom.xml" ]; then
+            echo "Mevcut dizinde pom.xml bulundu, burada kalıyoruz"
+          else
+            echo "❌ hss-backend dizini veya pom.xml bulunamadı!"
+            exit 1
+          fi
+          
+          # Flyway migration çalıştır
+          echo "📊 Flyway migration çalıştırılıyor..."
+          ./mvnw -B flyway:migrate \
+            -Dflyway.url=jdbc:postgresql:///hss_prod?socketFactory=com.google.cloud.sql.postgres.SocketFactory&cloudSqlInstance=${_CONNECTION_NAME} \
+            -Dflyway.user=${_DB_USERNAME_SECRET} \
+            -Dflyway.password=${_DB_PASSWORD_SECRET} \
+            -Dflyway.locations=classpath:db/migration \
+            -Dflyway.baseline-on-migrate=true
+          
+          echo "✅ Database migration tamamlandı!"
+        else
+          echo "ℹ️ Dev ortamı - migration atlandı"
+        fi
+    waitFor: ['migrate']
+
+  # 7. Cloud Run deploy
   - name: 'gcr.io/cloud-builders/gcloud'
     id: 'deploy'
     entrypoint: 'bash'
@@ -178,11 +215,12 @@ steps:
           MY_SERVICE_NAME="hss-backend"
           MY_MIN_INSTANCES="1"
           MY_MAX_INSTANCES="10"
-          MY_MEMORY="1Gi"
+          MY_MEMORY="2Gi"  # Daha fazla memory
           MY_CPU="2"
-          MY_TIMEOUT="600"
+          MY_TIMEOUT="900"  # Daha uzun timeout (15 dakika)
           MY_CONCURRENCY="100"
           MY_DB="hss_prod"
+          MY_PORT="8080"
         else
           MY_SPRING_PROFILE="dev"
           MY_SERVICE_NAME="hss-backend-dev"
@@ -193,11 +231,12 @@ steps:
           MY_TIMEOUT="300"
           MY_CONCURRENCY="80"
           MY_DB="hss_dev"
+          MY_PORT="8080"
         fi
 
         # Servisin mevcut olup olmadığını kontrol et
         echo "🔍 Servis durumu kontrol ediliyor: $${MY_SERVICE_NAME}"
-        if gcloud run services describe "$${MY_SERVICE_NAME}" --region="${_REGION}" --quiet >/dev/null 2>&1; then
+        if gcloud run services describe "$${MY_SERVICE_NAME}" --region="${_REGION}" --project="${PROJECT_ID}" --quiet >/dev/null 2>&1; then
           echo "✅ Servis mevcut, güncelleniyor..."
           MY_NO_TRAFFIC_FLAG="--no-traffic"
         else
@@ -210,7 +249,7 @@ steps:
           --region="${_REGION}" \
           --service-account="${_SERVICE_ACCOUNT}" \
           --platform=managed \
-          --allow-unauthenticated \
+          --no-allow-unauthenticated \
           --set-env-vars="SPRING_PROFILES_ACTIVE=$${MY_SPRING_PROFILE},DB_NAME=$${MY_DB}" \
           --set-env-vars="GCP_SQL_INSTANCE_CONNECTION_NAME=${_CONNECTION_NAME}" \
           --set-secrets="DB_USERNAME=${_DB_USERNAME_SECRET}:latest,DB_PASSWORD=${_DB_PASSWORD_SECRET}:latest" \
@@ -221,9 +260,19 @@ steps:
           --cpu="$${MY_CPU}" \
           --timeout="$${MY_TIMEOUT}" \
           --concurrency="$${MY_CONCURRENCY}" \
-          --port=8080 \
+          --port="$${MY_PORT}" \
+          --cpu-throttling \
+          --execution-environment=gen2 \
           $${MY_NO_TRAFFIC_FLAG} \
           --quiet
+
+        # IAM policy'yi ayrı olarak ayarla
+        echo "🔐 IAM policy ayarlanıyor..."
+        gcloud run services add-iam-policy-binding "$${MY_SERVICE_NAME}" \
+          --region="${_REGION}" \
+          --member="allUsers" \
+          --role="roles/run.invoker" \
+          --quiet || echo "⚠️ IAM policy ayarlanamadı, manuel olarak ayarlanmalı"
 
         MY_URL=$(gcloud run services describe "$${MY_SERVICE_NAME}" --region=${_REGION} --format='value(status.url)')
         echo "✅ Deploy başarılı: $${MY_SERVICE_NAME}"

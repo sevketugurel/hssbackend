@@ -6,10 +6,12 @@ spring:
     password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
-      connection-timeout: 30000
+      connection-timeout: 60000  # 60 saniye
       initialization-fail-timeout: 0
-      maximum-pool-size: 10
-      minimum-idle: 2
+      maximum-pool-size: 5  # Daha az connection
+      minimum-idle: 1
+      idle-timeout: 300000  # 5 dakika
+      max-lifetime: 1200000  # 20 dakika
   
   cloud:
     gcp:
@@ -55,6 +57,8 @@ server:
   servlet:
     context-path: /
   address: 0.0.0.0
+  # Startup timeout artırıldı
+  startup-timeout: 300000  # 5 dakika
 
 # Management Configuration for Production
 management:
