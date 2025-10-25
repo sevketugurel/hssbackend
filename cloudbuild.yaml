@@ -106,25 +106,25 @@ steps:
         echo "✅ Build başarılı - jar üretildi"
         
         # --- START: Ensure Spring Boot reads Cloud Run's PORT and binds correctly ---
-        RES_PROPS="src/main/resources/application.properties"
-        mkdir -p "$(dirname "$RES_PROPS")"
+        RES_PROPS_FILE="src/main/resources/application.properties"
+        mkdir -p "$(dirname "$RES_PROPS_FILE")"
         echo "🔧 application.properties kontrol ediliyor..."
         
         # Eğer dosya yoksa oluştur; varsa var olan server.port/server.address lines'larını güncelle
-        if [ -f "$RES_PROPS" ]; then
+        if [ -f "$RES_PROPS_FILE" ]; then
           # Remove existing server.port/server.address lines to avoid duplicates
-          sed -i.bak -E '/^server\.port=|^server\.address=|^management\.endpoints\.web\.exposure\.include=|^management\.endpoint\.health\.show-details=/d' "$RES_PROPS" || true
+          sed -i.bak -E '/^server\.port=|^server\.address=|^management\.endpoints\.web\.exposure\.include=|^management\.endpoint\.health\.show-details=/d' "$RES_PROPS_FILE" || true
         else
-          echo "# created by cloudbuild patch" > "$RES_PROPS"
+          echo "# created by cloudbuild patch" > "$RES_PROPS_FILE"
         fi
         
         # Cloud Run friendly settings'i application.properties'e ekle
-        echo "server.port=\${PORT:8080}" >> "$RES_PROPS"
-        echo "server.address=0.0.0.0" >> "$RES_PROPS"
-        echo "" >> "$RES_PROPS"
-        echo "# Expose Actuator basic endpoints for health checks" >> "$RES_PROPS"
-        echo "management.endpoints.web.exposure.include=health,info" >> "$RES_PROPS"
-        echo "management.endpoint.health.show-details=always" >> "$RES_PROPS"
+        echo "server.port=\${PORT:8080}" >> "$RES_PROPS_FILE"
+        echo "server.address=0.0.0.0" >> "$RES_PROPS_FILE"
+        echo "" >> "$RES_PROPS_FILE"
+        echo "# Expose Actuator basic endpoints for health checks" >> "$RES_PROPS_FILE"
+        echo "management.endpoints.web.exposure.include=health,info" >> "$RES_PROPS_FILE"
+        echo "management.endpoint.health.show-details=always" >> "$RES_PROPS_FILE"
         
         echo "✅ application.properties güncellendi (server.port ve server.address ayarlandı)."
         # --- END patch ---
