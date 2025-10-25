@@ -11,7 +11,20 @@ steps:
       - '-c'
       - |
         echo "📦 Maven dependencies indiriliyor..."
-        cd hss-backend
+        echo "Mevcut dizin: $(pwd)"
+        echo "Dizin içeriği: $(ls -la)"
+        # Root dizinden hss-backend'e geç veya mevcut dizinde kal
+        if [ -d "hss-backend" ]; then
+          cd hss-backend
+          echo "hss-backend dizinine geçildi"
+        elif [ -f "pom.xml" ]; then
+          echo "Mevcut dizinde pom.xml bulundu, burada kalıyoruz"
+        else
+          echo "❌ hss-backend dizini veya pom.xml bulunamadı!"
+          echo "Mevcut dizin içeriği:"
+          ls -la
+          exit 1
+        fi
         
         # Maven cache'ini optimize et
         mkdir -p /workspace/.m2/repository
@@ -35,7 +48,19 @@ steps:
       - '-c'
       - |
         echo "🧪 Backend testleri çalıştırılıyor..."
-        cd hss-backend
+        echo "Mevcut dizin: $(pwd)"
+        # Root dizinden hss-backend'e geç veya mevcut dizinde kal
+        if [ -d "hss-backend" ]; then
+          cd hss-backend
+          echo "hss-backend dizinine geçildi"
+        elif [ -f "pom.xml" ]; then
+          echo "Mevcut dizinde pom.xml bulundu, burada kalıyoruz"
+        else
+          echo "❌ hss-backend dizini veya pom.xml bulunamadı!"
+          echo "Mevcut dizin içeriği:"
+          ls -la
+          exit 1
+        fi
         if [ "${_ENVIRONMENT}" = "prod" ]; then
           echo "🔍 Production testleri - tüm testler..."
           ./mvnw -B test -Dmaven.repo.local=/workspace/.m2/repository
@@ -54,7 +79,19 @@ steps:
       - '-c'
       - |
         echo "🔨 Backend build ediliyor..."
-        cd hss-backend
+        echo "Mevcut dizin: $(pwd)"
+        # Root dizinden hss-backend'e geç veya mevcut dizinde kal
+        if [ -d "hss-backend" ]; then
+          cd hss-backend
+          echo "hss-backend dizinine geçildi"
+        elif [ -f "pom.xml" ]; then
+          echo "Mevcut dizinde pom.xml bulundu, burada kalıyoruz"
+        else
+          echo "❌ hss-backend dizini veya pom.xml bulunamadı!"
+          echo "Mevcut dizin içeriği:"
+          ls -la
+          exit 1
+        fi
         ./mvnw -B clean package -DskipTests -Dmaven.repo.local=/workspace/.m2/repository
         echo "✅ Build başarılı!"
     waitFor: ['maven-deps']
@@ -71,9 +108,21 @@ steps:
 
         echo "🐳 Docker image build başlıyor..."
         echo "Environment: ${_ENVIRONMENT}, Tag: ${_TAG_NAME}"
+        echo "Mevcut dizin: $(pwd)"
+        echo "Dizin içeriği: $(ls -la)"
 
-        # hss-backend dizinine geç
-        cd hss-backend
+        # Root dizinden hss-backend'e geç veya mevcut dizinde kal
+        if [ -d "hss-backend" ]; then
+          cd hss-backend
+          echo "hss-backend dizinine geçildi"
+        elif [ -f "pom.xml" ]; then
+          echo "Mevcut dizinde pom.xml bulundu, burada kalıyoruz"
+        else
+          echo "❌ hss-backend dizini veya pom.xml bulunamadı!"
+          echo "Mevcut dizin içeriği:"
+          ls -la
+          exit 1
+        fi
 
         # Multiple cache sources for better hit rate
         docker pull "$${MY_IMG_PATH}:latest" || echo "No latest image found"
